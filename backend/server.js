@@ -5,16 +5,28 @@ const connectDB = require('./config/db');
 
 dotenv.config();
 connectDB();
+
+// Register models
+require('./models/User');
+require('./models/Inventory');
+require('./models/Customer');
+require('./models/ProductRental');
+
+// Import the routes file
+const rentalRoutes = require('./routes/rentalRoutes');
+const customerRoutes = require('./routes/customerRoutes');
+const inventoryRoutes = require('./routes/inventoryRoutes');
+
 const app = express();
 
 // Middleware
 app.use(cors());
 app.use(express.json());
 
-// Import Models
-const User = require('./models/User');
-const Inventory = require('./models/Inventory');
-const ProductRental = require('./models/ProductRental');
+// Mount the routes
+app.use('/api/rentals', rentalRoutes);
+app.use('/api/customers', customerRoutes);
+app.use('/api/inventory', inventoryRoutes)
 
 app.get('/', (req, res) => {
   res.send('ELVI Music Studio API is running...');
