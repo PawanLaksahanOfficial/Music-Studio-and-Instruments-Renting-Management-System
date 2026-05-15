@@ -1,19 +1,25 @@
 {
-  "name": "backend",
+  "name": "elvi-backend",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "ELVI Music Studio Management System - Backend API",
+  "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "seed": "node seed.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "dependencies": {
+    "aws-sdk": "^2.1693.0",
+    "bcryptjs": "^2.4.3",
     "cors": "^2.8.6",
-    "dotenv": "^17.4.1",
-    "express": "^5.2.1",
+    "dotenv": "^16.0.0",
+    "express": "^4.21.2",
     "jsonwebtoken": "^9.0.3",
-    "mongoose": "^9.4.1"
+    "mongoose": "^9.4.1",
+    "node-cron": "^4.2.1",
+    "uuid": "^11.1.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.0"
   }
 }

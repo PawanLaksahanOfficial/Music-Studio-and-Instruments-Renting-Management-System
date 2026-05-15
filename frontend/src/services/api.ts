@@ -1,0 +1,77 @@
+import axios from 'axios';
+
+const BASE = 'http://localhost:5000/api';
+
+// ── Auth ──────────────────────────────────────────────────────────────────
+export const authAPI = {
+    login: (username: string, password: string) =>
+        axios.post(`${BASE}/auth/login`, { username, password }),
+};
+
+// ── Users ─────────────────────────────────────────────────────────────────
+export const usersAPI = {
+    getAll: () => axios.get(`${BASE}/users`),
+    create: (data: object) => axios.post(`${BASE}/users`, data),
+    update: (id: string, data: object) => axios.patch(`${BASE}/users/${id}`, data),
+    delete: (id: string) => axios.delete(`${BASE}/users/${id}`),
+    toggleActive: (id: string) => axios.patch(`${BASE}/users/${id}/toggle-active`),
+};
+
+// ── Customers ─────────────────────────────────────────────────────────────
+export const customersAPI = {
+    getAll: () => axios.get(`${BASE}/customers`),
+    getById: (id: string) => axios.get(`${BASE}/customers/${id}`),
+    create: (data: object) => axios.post(`${BASE}/customers`, data),
+    update: (id: string, data: object) => axios.patch(`${BASE}/customers/${id}`, data),
+    delete: (id: string) => axios.delete(`${BASE}/customers/${id}`),
+    toggleBlacklist: (id: string) => axios.patch(`${BASE}/customers/${id}/blacklist`),
+};
+
+// ── Inventory ─────────────────────────────────────────────────────────────
+export const inventoryAPI = {
+    getAll: () => axios.get(`${BASE}/inventory`),
+    getByQR: (qrCodeId: string) => axios.get(`${BASE}/inventory/qr/${qrCodeId}`),
+    create: (data: object) => axios.post(`${BASE}/inventory`, data),
+    update: (id: string, data: object) => axios.patch(`${BASE}/inventory/${id}`, data),
+    delete: (id: string) => axios.delete(`${BASE}/inventory/${id}`),
+};
+
+// ── Product Rentals ───────────────────────────────────────────────────────
+export const rentalsAPI = {
+    getAll: () => axios.get(`${BASE}/rentals`),
+    getById: (id: string) => axios.get(`${BASE}/rentals/${id}`),
+    create: (data: object) => axios.post(`${BASE}/rentals`, data),
+    updateStatus: (id: string, status: string) =>
+        axios.patch(`${BASE}/rentals/${id}/status`, { status }),
+    extendDueDate: (id: string, newDueDate: string) =>
+        axios.patch(`${BASE}/rentals/${id}/extend`, { newDueDate }),
+    updatePayment: (id: string, paymentStatus: string) =>
+        axios.patch(`${BASE}/rentals/${id}/payment`, { paymentStatus }),
+    delete: (id: string) => axios.delete(`${BASE}/rentals/${id}`),
+};
+
+// ── Studio Rentals ────────────────────────────────────────────────────────
+export const studioRentalsAPI = {
+    getAll: () => axios.get(`${BASE}/studio-rentals`),
+    getById: (id: string) => axios.get(`${BASE}/studio-rentals/${id}`),
+    create: (data: object) => axios.post(`${BASE}/studio-rentals`, data),
+    update: (id: string, data: object) => axios.patch(`${BASE}/studio-rentals/${id}`, data),
+    updateStatus: (id: string, status: string) =>
+        axios.patch(`${BASE}/studio-rentals/${id}/status`, { status }),
+    delete: (id: string) => axios.delete(`${BASE}/studio-rentals/${id}`),
+};
+
+// ── Invoices ──────────────────────────────────────────────────────────────
+export const invoicesAPI = {
+    getAll: () => axios.get(`${BASE}/invoices`),
+    getById: (id: string) => axios.get(`${BASE}/invoices/${id}`),
+    create: (data: object) => axios.post(`${BASE}/invoices`, data),
+    updatePayment: (id: string, paymentStatus: string) =>
+        axios.patch(`${BASE}/invoices/${id}/payment`, { paymentStatus }),
+};
+
+// ── Stats ─────────────────────────────────────────────────────────────────
+export const statsAPI = {
+    getSummary: () => axios.get(`${BASE}/stats/summary`),
+    getMonthly: () => axios.get(`${BASE}/stats/monthly`),
+};

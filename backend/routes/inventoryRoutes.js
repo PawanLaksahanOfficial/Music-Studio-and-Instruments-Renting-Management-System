@@ -1,10 +1,18 @@
 const express = require('express');
 const router = express.Router();
-const { 
-    getAllInventoryRecords
+const { protect, adminOnly } = require('../auth');
+const {
+    getAllInventoryRecords, getByQRCode, getInventoryById,
+    createInventoryItem, updateInventoryItem, deleteInventoryItem
 } = require('../controllers/inventoryController');
 
-// GET /api/inventory
+router.use(protect);
+
+router.get('/qr/:qrCodeId', getByQRCode);
 router.get('/', getAllInventoryRecords);
+router.get('/:id', getInventoryById);
+router.post('/', adminOnly, createInventoryItem);
+router.patch('/:id', adminOnly, updateInventoryItem);
+router.delete('/:id', adminOnly, deleteInventoryItem);
 
 module.exports = router;

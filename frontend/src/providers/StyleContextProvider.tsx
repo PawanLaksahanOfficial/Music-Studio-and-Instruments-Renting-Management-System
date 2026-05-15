@@ -1,35 +1,25 @@
-import React from "react";
-import {useMediaQuery} from 'react-responsive' 
-import { styleDictionary } from "../styles/StyleDictionary";
-import { StyleContext } from "../context/StyleContext";
+import { ReactNode } from 'react';
+import { StyleContext } from '../context/StyleContext';
+import { styleDictionary } from '../styles/StyleDictionary';
+import { AdminStyles } from '../styles/AllStyles';
 
-type StyleGroup = { [key: string]: string | number | undefined };
-type ComponentStyle = { [key: string]: StyleGroup };
-
-export const StyleContextProvider = (Props:{ children: React.ReactNode }) => {
-
-    const isMobile = useMediaQuery({ query : "(max-width: 786px)" });
-    const handleComponentStyle = (component: string) => {
+export const StyleContextProvider = ({ children }: { children: ReactNode }) => {
+    const getComponentStyle = (component: string): Record<string, React.CSSProperties> => {
         const styles = styleDictionary.get(component);
         if (!styles) return {};
 
-        if (isMobile) {
-            return styles.mobile;
-        } else {
-            return Object.keys(styles.mobile).reduce<ComponentStyle>((acc, key) => {
-                acc[key] = {
-                    ...(styles.mobile[key] as StyleGroup),
-                    ...(styles.desktop?.[key] as StyleGroup || {})
-                };
-                return acc;
-            }, {});
+        // For adminLayout, merge mobile + desktop for simplicity
+        if (component === 'adminLayout') {
+            const s = styles as typeof AdminStyles;
+            return { ...s } as Record<string, React.CSSProperties>;
         }
+
+        return styles as Record<string, React.CSSProperties>;
     };
-    return(
-        <StyleContext.Provider value={{
-            getComponentStyle: handleComponentStyle
-        }}>
-            {Props.children}
+
+    return (
+        <StyleContext.Provider value={{ getComponentStyle }}>
+            {children}
         </StyleContext.Provider>
-    )
-}
+    );
+};

@@ -11,8 +11,12 @@
   },
   "dependencies": {
     "axios": "^1.15.0",
+    "html5-qrcode": "^2.3.8",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.7",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
+    "react-hot-toast": "^2.6.0",
     "react-merge": "^1.1.2",
     "react-responsive": "^10.0.1",
     "react-router-dom": "^7.14.1"

@@ -1,22 +1,15 @@
 const express = require('express');
 const router = express.Router();
-const { 
-    getAllRentals, 
-    createNewRental, 
-    updateRentalStatus,
-    deleteRental 
-} = require('../controllers/rentalController');
+const { protect, adminOnly } = require('../auth');
+const { getAllRentals, getRentalById, createNewRental, updateRentalStatus, extendDueDate, updatePaymentStatus, deleteRental } = require('../controllers/rentalController');
 
-// GET /api/rentals
+router.use(protect);
 router.get('/', getAllRentals);
-
-// POST /api/rentals
+router.get('/:id', getRentalById);
 router.post('/', createNewRental);
-
-// PATCH /api/rentals/:id
 router.patch('/:id/status', updateRentalStatus);
-
-// PATCH /api/:id
-router.patch('/:id', deleteRental)
+router.patch('/:id/extend', extendDueDate);
+router.patch('/:id/payment', updatePaymentStatus);
+router.delete('/:id', adminOnly, deleteRental);
 
 module.exports = router;

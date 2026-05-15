@@ -1,22 +1,28 @@
 interface Rental {
     _id: string;
     rentalId: string;
-    customer: { 
+    customer: {
         _id: string;
-        firstName: string; 
-        lastName: string 
+        firstName: string;
+        lastName: string;
+        phone: string;
     };
-    items: Array<{ 
-        itemId: { 
+    items: Array<{
+        itemId: {
             _id: string;
-            itemName: string 
-        } 
+            itemName: string;
+            serialNumber: string;
+            baseRentalPrice: number;
+        };
+        quantity: number;
     }>;
     rentalDate: string;
     dueDate: string;
-    status: string;
+    returnDate?: string;
+    status: 'Rented' | 'Returned' | 'Overdue';
     totalAmount: number;
-    paymentStatus: string;
+    paymentStatus: 'Paid' | 'Pending' | 'Partial';
+    notes?: string;
 }
-
+ 
 export default Rental;
