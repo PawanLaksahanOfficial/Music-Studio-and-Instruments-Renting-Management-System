@@ -6,23 +6,23 @@ AWS.config.update({
     region: process.env.AWS_REGION || 'us-east-1'
 });
 
-const sns = new AWS.SNS();
+// const sns = new AWS.SNS();
 const ses = new AWS.SES();
 
-exports.sendSMS = async (phoneNumber, message) => {
-    try {
-        const params = {
-            Message: message,
-            PhoneNumber: phoneNumber,
-        };
-        const result = await sns.publish(params).promise();
-        console.log(`SMS sent to ${phoneNumber}: ${result.MessageId}`);
-        return result;
-    } catch (err) {
-        console.error('AWS SNS Error:', err);
-        throw err;
-    }
-};
+// exports.sendSMS = async (phoneNumber, message) => {
+//     try {
+//         const params = {
+//             Message: message,
+//             PhoneNumber: phoneNumber,
+//         };
+//         const result = await sns.publish(params).promise();
+//         console.log(`SMS sent to ${phoneNumber}: ${result.MessageId}`);
+//         return result;
+//     } catch (err) {
+//         console.error('AWS SNS Error:', err);
+//         throw err;
+//     }
+// };
 
 exports.sendEmail = async (toEmail, subject, text) => {
     try {

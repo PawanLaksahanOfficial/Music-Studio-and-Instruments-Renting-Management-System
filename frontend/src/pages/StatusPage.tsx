@@ -5,6 +5,13 @@ import { CardStyles, FormStyles } from '../styles/AllStyles';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
+// Type extension for jsPDF instance with autoTable plugin properties
+interface jsPDFWithAutoTable extends jsPDF {
+    lastAutoTable: {
+        finalY: number;
+    };
+}
+
 interface Summary {
     totalRevenue: number;
     activeProductRentals: number;
@@ -86,7 +93,7 @@ const StatsPage: React.FC = () => {
             ]);
 
             autoTable(doc, {
-                startY: (doc as any).lastAutoTable.finalY + 15,
+                startY: (doc as unknown as jsPDFWithAutoTable).lastAutoTable.finalY + 15,
                 head: [['Month', 'Product Revenue', 'Studio Revenue', 'Total']],
                 body: monthlyData,
                 theme: 'grid',

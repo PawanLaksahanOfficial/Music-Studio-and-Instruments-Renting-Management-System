@@ -15,12 +15,11 @@ const StudioRentalSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Auto-calculate duration before save
-StudioRentalSchema.pre('save', function (next) {
+StudioRentalSchema.pre('save', async function () {
     if (this.startTime && this.endTime) {
         const diffMs = new Date(this.endTime) - new Date(this.startTime);
         this.durationHours = parseFloat((diffMs / 3600000).toFixed(2));
     }
-    next();
 });
 
 module.exports = mongoose.models.StudioRental || mongoose.model('StudioRental', StudioRentalSchema);

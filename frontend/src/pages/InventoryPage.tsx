@@ -9,13 +9,16 @@ import { AdminStyles, InventoryPageStyles, ModalStyles, FormStyles, StatusBadge 
 const CATEGORIES = ['Instruments', 'Audio Gear', 'Cables', 'Other'] as const;
 const STATUSES   = ['Available', 'Rented', 'Maintenance', 'Damaged', 'Lost'] as const;
 
+type Category = typeof CATEGORIES[number];
+type Status = typeof STATUSES[number];
+
 interface InventoryForm {
     itemName: string;
-    category: 'Instruments' | 'Audio Gear' | 'Cables' | 'Other';
+    category: Category;
     brand: string;
     model: string;
     serialNumber: string;
-    status: 'Available' | 'Rented' | 'Maintenance' | 'Damaged' | 'Lost';
+    status: Status;
     baseRentalPrice: number;
     purchaseDate: string;
     notes: string;
@@ -282,7 +285,7 @@ const InventoryPage: React.FC = () => {
                                 <div style={FormStyles.group}>
                                     <label style={FormStyles.label}>Category *</label>
                                     <select style={FormStyles.select} value={formData.category}
-                                        onChange={e => setFormData({ ...formData, category: e.target.value as any })}>
+                                        onChange={e => setFormData({ ...formData, category: e.target.value as Category })}>
                                         {CATEGORIES.map(c => <option key={c}>{c}</option>)}
                                     </select>
                                 </div>
@@ -309,7 +312,7 @@ const InventoryPage: React.FC = () => {
                                 <div style={FormStyles.group}>
                                     <label style={FormStyles.label}>Status</label>
                                     <select style={FormStyles.select} value={formData.status}
-                                        onChange={e => setFormData({ ...formData, status: e.target.value as any })}>
+                                        onChange={e => setFormData({ ...formData, status: e.target.value as Status })}>
                                         {STATUSES.map(s => <option key={s}>{s}</option>)}
                                     </select>
                                 </div>
