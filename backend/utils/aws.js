@@ -1,28 +1,32 @@
-const AWS = require('aws-sdk');
+const { SNSClient, PublishCommand } = require("@aws-sdk/client-sns");
+const { SESClient, SendEmailCommand } = require("@aws-sdk/client-ses");
 
-AWS.config.update({
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+const config = {
+    credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    },
     region: process.env.AWS_REGION || 'us-east-1'
-});
+};
 
-// const sns = new AWS.SNS();
-const ses = new AWS.SES();
+const snsClient = new SNSClient(config);
+const sesClient = new SESClient(config);
 
-// exports.sendSMS = async (phoneNumber, message) => {
-//     try {
-//         const params = {
-//             Message: message,
-//             PhoneNumber: phoneNumber,
-//         };
-//         const result = await sns.publish(params).promise();
-//         console.log(`SMS sent to ${phoneNumber}: ${result.MessageId}`);
-//         return result;
-//     } catch (err) {
-//         console.error('AWS SNS Error:', err);
-//         throw err;
-//     }
-// };
+exports.sendSMS = async (phoneNumber, message) => {
+    try {
+        const params = {
+            Message: message,
+            PhoneNumber: phoneNumber,
+        };
+        const command = new PublishCommand(params);
+        const result = await snsClient.send(command);
+        console.log(`SMS sent to ${phoneNumber}: ${result.MessageId}`);
+        return result;
+    } catch (err) {
+        console.error('AWS SNS Error:', err);
+        throw err;
+    }
+};
 
 exports.sendEmail = async (toEmail, subject, text) => {
     try {
@@ -34,11 +38,17 @@ exports.sendEmail = async (toEmail, subject, text) => {
             },
             Source: process.env.AWS_SES_FROM_EMAIL || 'no-reply@elvistudio.com'
         };
-        const result = await ses.sendEmail(params).promise();
+        const command = new SendEmailCommand(params);
+        const result = await sesClient.send(command);
         console.log(`Email sent to ${toEmail}: ${result.MessageId}`);
         return result;
     } catch (err) {
         console.error('AWS SES Error:', err);
+        if (err.name === 'MessageRejected' && err.message.includes('Email address is not verified')) {
+            console.error('CRITICAL: SES is in Sandbox mode or email is unverified.');
+            console.error(`Verified sender email: ${process.env.AWS_SES_FROM_EMAIL}`);
+            console.error(`Attempted recipient: ${toEmail}`);
+        }
         throw err;
     }
 };

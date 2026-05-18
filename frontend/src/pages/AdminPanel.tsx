@@ -1,10 +1,11 @@
-import { useContext } from 'react';
+import { useContext, useState } from 'react';
 import { StyleContext } from '../context/StyleContext';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { AdminStyles } from '../styles/AllStyles';
 import AdminHeader from '../components/AdminHeader';
 import Footer from '../components/AdminFooter';
+import { cronAPI } from '../services/api';
 
 const menuItems = [
     { id: 'products',  label: 'Product Rentals', path: '/admin/products',  icon: '🎸' },
@@ -23,10 +24,32 @@ const AdminPanel = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const { user, logout, isAdmin } = useAuth();
+    const [loadingReminders, setLoadingReminders] = useState(false);
 
     const visibleItems = menuItems.filter(item => !item.adminOnly || isAdmin);
 
     const handleLogout = () => { logout(); navigate('/login'); };
+
+    const handleTriggerReminders = async () => {
+        if (!window.confirm('Are you sure you want to trigger due date reminders manually?')) return;
+        setLoadingReminders(true);
+        try {
+            const res = await cronAPI.triggerReminders();
+            alert(`Success: ${res.data.message}. Processed ${res.data.processedCount} rentals.`);
+        } catch (error: unknown) {
+            console.error('Trigger error:', error);
+            let message = 'An error occurred';
+            if (error && typeof error === 'object' && 'response' in error) {
+                const axiosError = error as { response?: { data?: { message?: string } } };
+                message = axiosError.response?.data?.message || message;
+            } else if (error instanceof Error) {
+                message = error.message;
+            }
+            alert(`Failed: ${message}`);
+        } finally {
+            setLoadingReminders(false);
+        }
+    };
 
     return (
         <div style={styles.container}>
@@ -65,6 +88,28 @@ const AdminPanel = () => {
                 <div style={styles.sidebarUserBox}>
                     <div style={{ fontWeight: 600, color: '#e2e8f0', marginBottom: 2 }}>{user?.name}</div>
                     <div style={{ fontSize: 11, color: '#64748b', marginBottom: 10 }}>{user?.role}</div>
+                    
+                    {isAdmin && (
+                        <button 
+                            onClick={handleTriggerReminders} 
+                            disabled={loadingReminders}
+                            style={{
+                                background: loadingReminders ? '#1e293b' : '#3b82f6', 
+                                border: 'none', 
+                                color: '#fff',
+                                padding: '8px 12px', 
+                                borderRadius: 6, 
+                                cursor: loadingReminders ? 'not-allowed' : 'pointer',
+                                fontSize: 12, 
+                                width: '100%',
+                                marginBottom: 10,
+                                fontWeight: 500
+                            }}
+                        >
+                            {loadingReminders ? 'Running...' : '🔔 Trigger Reminders'}
+                        </button>
+                    )}
+
                     <button onClick={handleLogout} style={{
                         background: 'none', border: '1px solid #334155', color: '#94a3b8',
                         padding: '6px 12px', borderRadius: 6, cursor: 'pointer',

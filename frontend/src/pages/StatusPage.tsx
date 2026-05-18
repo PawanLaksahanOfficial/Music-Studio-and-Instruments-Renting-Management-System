@@ -43,14 +43,17 @@ const StatsPage: React.FC = () => {
     useEffect(() => {
         const fetch = async () => {
             try {
-                const [sRes, mRes] = await Promise.all([statsAPI.getSummary(), statsAPI.getMonthly()]);
+                const [sRes, mRes] = await Promise.all([
+                    statsAPI.getSummary(dateRange),
+                    statsAPI.getMonthly(dateRange)
+                ]);
                 setSummary(sRes.data);
                 setMonthly(mRes.data);
             } catch (e) { console.error(e); }
             finally { setLoading(false); }
         };
         fetch();
-    }, []);
+    }, [dateRange]);
 
     const generatePDF = () => {
         if (!summary) return;

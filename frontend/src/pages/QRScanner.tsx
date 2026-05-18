@@ -11,10 +11,10 @@ const SCANNER_ID = 'elvi-qr-region';
 const QRScanner: React.FC<Props> = ({ onScanSuccess, onClose }) => {
     const scannerRef = useRef<Html5Qrcode | null>(null);
     const hasStarted = useRef(false);
-    const [cameras, setCameras]         = useState<{ id: string; label: string }[]>([]);
+    const [cameras, setCameras] = useState<{ id: string; label: string }[]>([]);
     const [selectedCam, setSelectedCam] = useState('');
-    const [started, setStarted]         = useState(false);
-    const [error, setError]             = useState('');
+    const [started, setStarted]  = useState(false);
+    const [error, setError]  = useState('');
 
     // 1. enumerate cameras on mount
     useEffect(() => {

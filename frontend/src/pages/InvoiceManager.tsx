@@ -25,7 +25,7 @@ const InvoiceManager: React.FC = () => {
 
     const [formData, setFormData] = useState({
         customerId: '', productRentalIds: [] as string[], studioRentalIds: [] as string[],
-        items: [{ ...emptyLine }],
+        items: [] as InvoiceItem[],
         paymentMethod: 'Cash', paymentStatus: 'Pending', notes: '', tax: 0,
     });
 
@@ -57,7 +57,77 @@ const InvoiceManager: React.FC = () => {
     };
 
     const addLine = () => setFormData({ ...formData, items: [...formData.items, { ...emptyLine }] });
-    const removeLine = (idx: number) => setFormData({ ...formData, items: formData.items.filter((_, i) => i !== idx) });
+    const removeLine = (idx: number) => {
+        const itemToRemove = formData.items[idx];
+        const newFormData = { ...formData };
+        newFormData.items = formData.items.filter((_, i) => i !== idx);
+
+        // If the item was a linked rental, unselect it from the IDs
+        if (itemToRemove.description.startsWith('Product Rental:')) {
+            const rid = itemToRemove.description.split(': ')[1];
+            const rental = productRentals.find(r => r.rentalId === rid);
+            if (rental) {
+                newFormData.productRentalIds = formData.productRentalIds.filter(id => id !== rental._id);
+            }
+        } else if (itemToRemove.description.startsWith('Studio Booking:')) {
+            const bid = itemToRemove.description.split(': ')[1].split(' - ')[0];
+            const rental = studioRentals.find(r => r.bookingId === bid);
+            if (rental) {
+                newFormData.studioRentalIds = formData.studioRentalIds.filter(id => id !== rental._id);
+            }
+        }
+
+        // If the item was a linked rental, we should probably unselect it from the IDs
+        // However, since the description is a string, it's hard to track back.
+        // For simplicity, we just remove the line. If it was a linked rental, 
+        // the user might need to unselect it from the dropdown to keep things in sync,
+        // or we can try to match description patterns.
+        
+        setFormData(newFormData);
+    };
+
+    // Effect to sync items when rentals are selected
+    useEffect(() => {
+        const newItems: InvoiceItem[] = [...formData.items.filter(item => 
+            !item.description.startsWith('Product Rental:') && 
+            !item.description.startsWith('Studio Booking:')
+        )];
+
+        formData.productRentalIds.forEach(id => {
+            const rental = productRentals.find(r => r._id === id);
+            if (rental) {
+                const start = new Date(rental.rentalDate);
+                const end = new Date(rental.dueDate);
+                const diffTime = Math.abs(end.getTime() - start.getTime());
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1;
+
+                newItems.push({
+                    description: `Product Rental: ${rental.rentalId}`,
+                    quantity: diffDays,
+                    unitPrice: Math.round(rental.totalAmount / diffDays),
+                    total: rental.totalAmount
+                });
+            }
+        });
+
+        formData.studioRentalIds.forEach(id => {
+            const rental = studioRentals.find(r => r._id === id);
+            if (rental) {
+                newItems.push({
+                    description: `Studio Booking: ${rental.bookingId} - ${rental.roomName}`,
+                    quantity: 1,
+                    unitPrice: rental.totalAmount,
+                    total: rental.totalAmount
+                });
+            }
+        });
+
+        if (newItems.length === 0 && formData.items.length === 0) {
+            newItems.push({ ...emptyLine });
+        }
+
+        setFormData(prev => ({ ...prev, items: newItems }));
+    }, [formData.productRentalIds, formData.studioRentalIds, productRentals, studioRentals]);
 
     const subtotal = formData.items.reduce((s, l) => s + l.total, 0);
     const total = subtotal + Number(formData.tax);
@@ -204,7 +274,9 @@ const InvoiceManager: React.FC = () => {
                                             const values = Array.from(e.target.selectedOptions, option => option.value);
                                             setFormData({ ...formData, productRentalIds: values });
                                         }}>
-                                        {productRentals.map(r => <option key={r._id} value={r._id}>{r.rentalId}</option>)}
+                                        {productRentals
+                                            .filter(r => r.paymentStatus === 'Pending' || formData.productRentalIds.includes(r._id))
+                                            .map(r => <option key={r._id} value={r._id}>{r.rentalId}</option>)}
                                     </select>
                                 </div>
                                 <div style={FormStyles.group}>
@@ -215,7 +287,9 @@ const InvoiceManager: React.FC = () => {
                                             const values = Array.from(e.target.selectedOptions, option => option.value);
                                             setFormData({ ...formData, studioRentalIds: values });
                                         }}>
-                                        {studioRentals.map(r => <option key={r._id} value={r._id}>{r.bookingId} — {r.roomName}</option>)}
+                                        {studioRentals
+                                            .filter(r => r.paymentStatus === 'Pending' || formData.studioRentalIds.includes(r._id))
+                                            .map(r => <option key={r._id} value={r._id}>{r.bookingId} — {r.roomName}</option>)}
                                     </select>
                                 </div>
                             </div>
@@ -233,37 +307,43 @@ const InvoiceManager: React.FC = () => {
                                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                                         <thead>
                                             <tr style={{ background: '#f8fafc' }}>
-                                                {['Description', 'Qty', 'Unit Price', 'Total', ''].map(h => (
+                                                {['Description', 'Days', 'Unit Price', 'Total', ''].map(h => (
                                                     <th key={h} style={{ padding: '8px 12px', textAlign: 'left', fontSize: '11px', color: '#64748b', fontWeight: 600, borderBottom: '1px solid #e2e8f0' }}>{h}</th>
                                                 ))}
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {formData.items.map((line, idx) => (
-                                                <tr key={idx}>
-                                                    <td style={{ padding: '6px 8px' }}>
-                                                        <input style={{ ...FormStyles.input, margin: 0 }} value={line.description} required
-                                                            onChange={e => updateLine(idx, 'description', e.target.value)} />
-                                                    </td>
-                                                    <td style={{ padding: '6px 8px', width: '70px' }}>
-                                                        <input type="number" min={1} style={{ ...FormStyles.input, margin: 0 }} value={line.quantity}
-                                                            onChange={e => updateLine(idx, 'quantity', Number(e.target.value))} />
-                                                    </td>
-                                                    <td style={{ padding: '6px 8px', width: '120px' }}>
-                                                        <input type="number" min={0} style={{ ...FormStyles.input, margin: 0 }} value={line.unitPrice}
-                                                            onChange={e => updateLine(idx, 'unitPrice', Number(e.target.value))} />
-                                                    </td>
-                                                    <td style={{ padding: '6px 12px', fontWeight: 600, fontSize: '14px', whiteSpace: 'nowrap' }}>
-                                                        Rs. {line.total}
-                                                    </td>
-                                                    <td style={{ padding: '6px 8px' }}>
-                                                        {formData.items.length > 1 && (
-                                                            <button type="button" onClick={() => removeLine(idx)}
-                                                                style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '16px' }}>✕</button>
-                                                        )}
-                                                    </td>
-                                                </tr>
-                                            ))}
+                                            {formData.items.map((line, idx) => {
+                                                const isLinked = line.description.startsWith('Product Rental:') || line.description.startsWith('Studio Booking:');
+                                                return (
+                                                    <tr key={idx}>
+                                                        <td style={{ padding: '6px 8px' }}>
+                                                            <input style={{ ...FormStyles.input, margin: 0 }} value={line.description} required
+                                                                readOnly={isLinked}
+                                                                onChange={e => updateLine(idx, 'description', e.target.value)} />
+                                                        </td>
+                                                        <td style={{ padding: '6px 8px', width: '80px' }}>
+                                                            <input type="number" min={1} style={{ ...FormStyles.input, margin: 0 }} value={line.quantity === 0 ? '' : line.quantity}
+                                                                readOnly={isLinked}
+                                                                onChange={e => updateLine(idx, 'quantity', e.target.value === '' ? 0 : Number(e.target.value))} />
+                                                        </td>
+                                                        <td style={{ padding: '6px 8px', width: '120px' }}>
+                                                            <input type="number" min={0} style={{ ...FormStyles.input, margin: 0 }} value={line.unitPrice === 0 ? '' : line.unitPrice}
+                                                                readOnly={isLinked}
+                                                                onChange={e => updateLine(idx, 'unitPrice', e.target.value === '' ? 0 : Number(e.target.value))} />
+                                                        </td>
+                                                        <td style={{ padding: '6px 12px', fontWeight: 600, fontSize: '14px', whiteSpace: 'nowrap' }}>
+                                                            Rs. {line.total}
+                                                        </td>
+                                                        <td style={{ padding: '6px 8px' }}>
+                                                            {(formData.items.length > 1 || isLinked) && (
+                                                                <button type="button" onClick={() => removeLine(idx)}
+                                                                    style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '16px' }}>✕</button>
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
                                         </tbody>
                                     </table>
                                 </div>
@@ -271,8 +351,8 @@ const InvoiceManager: React.FC = () => {
                                     <span style={{ color: '#64748b' }}>Subtotal: <strong>Rs. {subtotal}</strong></span>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                         <span style={{ color: '#64748b' }}>Tax (Rs.):</span>
-                                        <input type="number" min={0} value={formData.tax} style={{ ...FormStyles.input, width: '90px', margin: 0 }}
-                                            onChange={e => setFormData({ ...formData, tax: Number(e.target.value) })} />
+                                        <input type="number" min={0} value={formData.tax === 0 ? '' : formData.tax} style={{ ...FormStyles.input, width: '90px', margin: 0 }}
+                                            onChange={e => setFormData({ ...formData, tax: e.target.value === '' ? 0 : Number(e.target.value) })} />
                                     </div>
                                     <span style={{ fontWeight: 700, fontSize: '16px', color: '#1e293b' }}>Total: Rs. {total}</span>
                                 </div>
@@ -343,7 +423,7 @@ const InvoiceManager: React.FC = () => {
                             <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '16px' }}>
                                 <thead>
                                     <tr style={{ background: '#f8fafc' }}>
-                                        {['Description', 'Qty', 'Unit Price', 'Total'].map(h => (
+                                        {['Description', 'days', 'Unit Price', 'Total'].map(h => (
                                             <th key={h} style={{ padding: '10px 12px', textAlign: 'left', fontSize: '12px', color: '#64748b', fontWeight: 600, border: '1px solid #e2e8f0' }}>{h}</th>
                                         ))}
                                     </tr>

@@ -75,7 +75,7 @@ function App() {
     return (
         <StyleContextProvider>
             <AuthProvider>
-                <Toaster position="top-right" />
+                <Toaster position="top-center" />
                 <BrowserRouter>
                     <AppRoutes />
                 </BrowserRouter>

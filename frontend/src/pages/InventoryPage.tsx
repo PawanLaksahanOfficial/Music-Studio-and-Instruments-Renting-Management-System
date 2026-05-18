@@ -285,7 +285,7 @@ const InventoryPage: React.FC = () => {
                                 <div style={FormStyles.group}>
                                     <label style={FormStyles.label}>Category *</label>
                                     <select style={FormStyles.select} value={formData.category}
-                                        onChange={e => setFormData({ ...formData, category: e.target.value as Category })}>
+                                        onChange={e => setFormData({ ...formData, category: e.target.value as InventoryForm['category'] })}>
                                         {CATEGORIES.map(c => <option key={c}>{c}</option>)}
                                     </select>
                                 </div>
@@ -306,13 +306,13 @@ const InventoryPage: React.FC = () => {
                                 </div>
                                 <div style={FormStyles.group}>
                                     <label style={FormStyles.label}>Daily Rental Price (Rs.) *</label>
-                                    <input type="number" style={FormStyles.input} value={formData.baseRentalPrice} required min={0}
-                                        onChange={e => setFormData({ ...formData, baseRentalPrice: Number(e.target.value) })} />
+                                    <input type="number" style={FormStyles.input} value={formData.baseRentalPrice === 0 ? '' : formData.baseRentalPrice} required min={0}
+                                        onChange={e => setFormData({ ...formData, baseRentalPrice: e.target.value === '' ? 0 : Number(e.target.value) })} />
                                 </div>
                                 <div style={FormStyles.group}>
                                     <label style={FormStyles.label}>Status</label>
                                     <select style={FormStyles.select} value={formData.status}
-                                        onChange={e => setFormData({ ...formData, status: e.target.value as Status })}>
+                                        onChange={e => setFormData({ ...formData, status: e.target.value as InventoryForm['status'] })}>
                                         {STATUSES.map(s => <option key={s}>{s}</option>)}
                                     </select>
                                 </div>

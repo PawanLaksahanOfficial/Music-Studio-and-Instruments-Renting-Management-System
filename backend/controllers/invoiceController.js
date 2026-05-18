@@ -1,5 +1,6 @@
 const Invoice = require('../models/Invoice');
 const StudioRental = require('../models/StudioRental');
+const ProductRental = require('../models/ProductRental');
 
 // GET /api/invoices
 exports.getAllInvoices = async (req, res) => {
@@ -77,12 +78,20 @@ exports.updatePaymentStatus = async (req, res) => {
         ).populate('customer', 'firstName lastName');
         if (!invoice) return res.status(404).json({ message: 'Invoice not found' });
 
-        // Sync studio rental payment status if this invoice is linked to any
-        if (paymentStatus === 'Paid' && invoice.studioRentals?.length > 0) {
-            await StudioRental.updateMany(
-                { _id: { $in: invoice.studioRentals } },
-                { paymentStatus: 'Paid' }
-            );
+        // Sync rental payment statuses if this invoice is linked to any
+        if (paymentStatus === 'Paid') {
+            if (invoice.studioRentals?.length > 0) {
+                await StudioRental.updateMany(
+                    { _id: { $in: invoice.studioRentals } },
+                    { paymentStatus: 'Paid' }
+                );
+            }
+            if (invoice.productRentals?.length > 0) {
+                await ProductRental.updateMany(
+                    { _id: { $in: invoice.productRentals } },
+                    { paymentStatus: 'Paid' }
+                );
+            }
         }
 
         res.json(invoice);

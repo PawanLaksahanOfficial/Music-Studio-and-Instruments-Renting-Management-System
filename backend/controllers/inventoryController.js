@@ -12,13 +12,8 @@ exports.getAllInventoryRecords = async (req, res) => {
 };
 
 // GET /api/inventory/qr/:qrCodeId
-// Supports two QR payload formats:
-//   1. Plain ID:           "ELVI-A1B2C3D4"
-//   2. Pipe-delimited:     "ELVI-A1B2C3D4|Fender Guitar|SN-001|500"
-//      (only the first segment is used for lookup — the rest is display info)
 exports.getByQRCode = async (req, res) => {
     try {
-        // strip everything after the first pipe, if present
         const rawParam   = decodeURIComponent(req.params.qrCodeId);
         const qrCodeId   = rawParam.split('|')[0].trim();
 

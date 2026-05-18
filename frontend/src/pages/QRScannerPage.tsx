@@ -235,7 +235,7 @@ const QRScannerPage: React.FC = () => {
             {/* ── IDLE ─────────────────────────────────────────────────────── */}
             {stage === 'idle' && (
                 <div style={ps.card}>
-                    <div style={{ textAlign:'center', padding:'40px 20px' }}>
+                    <div style={{ textAlign:'center', padding:'40px 20px'}}>
                         <div style={{ fontSize:80, marginBottom:18 }}>🔲</div>
                         <h3 style={ps.cardTitle}>Scan an Instrument QR Code</h3>
                         <p style={ps.cardSub}>
@@ -354,8 +354,8 @@ const QRScannerPage: React.FC = () => {
                                 </div>
                                 <div style={{ ...ps.costRow, alignItems:'center' }}>
                                     <span>Tax / Other charges (Rs.)</span>
-                                    <input type="number" min={0} value={form.tax} style={{ ...FormStyles.input, width:110, margin:0, padding:'6px 10px' }}
-                                        onChange={e => setForm({ ...form, tax: Number(e.target.value) })} />
+                                    <input type="number" min={0} value={form.tax === 0 ? '' : form.tax} style={{ ...FormStyles.input, width:110, margin:0, padding:'6px 10px' }}
+                                        onChange={e => setForm({ ...form, tax: e.target.value === '' ? 0 : Number(e.target.value) })} />
                                 </div>
                                 <div style={ps.costTotal}>
                                     <span>Total</span>

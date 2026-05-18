@@ -30,6 +30,7 @@ app.use('/api/rentals', require('./routes/rentalRoutes'));
 app.use('/api/studio-rentals', require('./routes/studioRentalRoutes'));
 app.use('/api/invoices', require('./routes/invoiceRoutes'));
 app.use('/api/stats', require('./routes/statsRoutes'));
+app.use('/api/cron', require('./routes/cronRoutes'));
 
 app.get('/', (req, res) => res.send('🎵 ELVI Music Studio API is running...'));
 

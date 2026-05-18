@@ -1,5 +1,6 @@
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
+const { sendEmail } = require('../utils/aws');
 
 // GET /api/users
 exports.getAllUsers = async (req, res) => {
@@ -14,7 +15,7 @@ exports.getAllUsers = async (req, res) => {
 // POST /api/users  (Admin only)
 exports.createUser = async (req, res) => {
     try {
-        const { name, username, password, role } = req.body;
+        const { name, username, password, role, email } = req.body;
         if (!name || !username || !password) {
             return res.status(400).json({ message: 'name, username and password are required' });
         }
@@ -22,9 +23,9 @@ exports.createUser = async (req, res) => {
         if (existing) {
             return res.status(409).json({ message: 'Username already taken' });
         }
-        const user = await User.create({ name, username, password, role });
+        const user = await User.create({ name, username, password, role, email });
         res.status(201).json({
-            _id: user._id, name: user.name, username: user.username,
+            _id: user._id, name: user.name, username: user.username, email: user.email,
             role: user.role, isActive: user.isActive, createdAt: user.createdAt
         });
     } catch (err) {
@@ -35,17 +36,18 @@ exports.createUser = async (req, res) => {
 // PATCH /api/users/:id  (Admin only)
 exports.updateUser = async (req, res) => {
     try {
-        const { name, role, password } = req.body;
+        const { name, role, password, email } = req.body;
         const user = await User.findById(req.params.id);
         if (!user) return res.status(404).json({ message: 'User not found' });
 
         if (name) user.name = name;
         if (role) user.role = role;
+        if (email) user.email = email;
         if (password) user.password = password;
 
         await user.save();
         res.json({
-            _id: user._id, name: user.name, username: user.username,
+            _id: user._id, name: user.name, username: user.username, email: user.email,
             role: user.role, isActive: user.isActive, lastLogin: user.lastLogin
         });
     } catch (err) {
@@ -74,5 +76,23 @@ exports.deleteUser = async (req, res) => {
         res.json({ message: 'User deleted' });
     } catch (err) {
         res.status(400).json({ message: err.message });
+    }
+};
+
+// POST /api/users/share-credentials
+exports.shareCredentials = async (req, res) => {
+    try {
+        const { userId, password } = req.body;
+        const user = await User.findById(userId);
+        if (!user) return res.status(404).json({ message: 'User not found' });
+        if (!user.email) return res.status(400).json({ message: 'User does not have an email address' });
+
+        const subject = 'Your Music Studio Management System Credentials';
+        const text = `Hi ${user.name},\n\nYour account has been created/updated. Here are your credentials:\n\nUsername: ${user.username}\nPassword: ${password}\n\nPlease log in and change your password if needed.\n\nRegards,\nManagement`;
+
+        await sendEmail(user.email, subject, text);
+        res.json({ message: 'Credentials shared successfully via email' });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
     }
 };

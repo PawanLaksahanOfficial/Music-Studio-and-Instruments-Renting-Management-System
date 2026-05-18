@@ -79,6 +79,25 @@ const AddUpdateRental = ({ isOpen, onClose, refreshData, selectedRental }: Props
         setExtendDate('');
     }, [selectedRental]);
 
+    //calculation of total amount for new rentals
+    useEffect(() => {
+        if (!selectedRental && formData.itemId && formData.dueDate) {
+            const item = inventory.find(i => i._id === formData.itemId);
+            if (item) {
+                const start = new Date();
+                start.setHours(0, 0, 0, 0);
+                const end = new Date(formData.dueDate);
+                end.setHours(0, 0, 0, 0);
+                
+                const diffTime = end.getTime() - start.getTime();
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1;
+                
+                const calcTotal = (diffDays > 0 ? diffDays : 1) * item.baseRentalPrice;
+                setFormData(prev => ({ ...prev, totalAmount: calcTotal }));
+            }
+        }
+    }, [formData.itemId, formData.dueDate, inventory, selectedRental]);
+
     const setStatus = (value: string) => {
         if (RENTAL_STATUSES.includes(value as RentalStatus)) {
             setFormData(prev => ({ ...prev, status: value as RentalStatus }));
@@ -164,7 +183,7 @@ const AddUpdateRental = ({ isOpen, onClose, refreshData, selectedRental }: Props
 
                         {!selectedRental ? (
                             <>
-                                {/* ── New rental fields ── */}
+                                {/*New rental fields*/}
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
                                     <label style={labelStyle}>Customer *</label>
                                     <select
@@ -200,14 +219,12 @@ const AddUpdateRental = ({ isOpen, onClose, refreshData, selectedRental }: Props
                                 </div>
 
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                                    <label style={labelStyle}>Total Amount (Rs.) *</label>
+                                    <label style={labelStyle}>Total Amount (Rs.)</label>
                                     <input
                                         type="number"
-                                        style={inputStyle}
+                                        style={{ ...inputStyle, backgroundColor: '#f1f5f9', cursor: 'not-allowed' }}
                                         value={formData.totalAmount}
-                                        min={0}
-                                        onChange={e => setFormData({ ...formData, totalAmount: Number(e.target.value) })}
-                                        required
+                                        readOnly
                                     />
                                 </div>
 

@@ -198,8 +198,8 @@ const StudioRentals: React.FC = () => {
                                 </div>
                                 <div style={FormStyles.group}>
                                     <label style={FormStyles.label}>Total Amount (Rs.) *</label>
-                                    <input type="number" style={FormStyles.input} value={formData.totalAmount} required min={0}
-                                        onChange={e => setFormData({ ...formData, totalAmount: Number(e.target.value) })} />
+                                    <input type="number" style={FormStyles.input} value={formData.totalAmount === 0 ? '' : formData.totalAmount} required min={0}
+                                        onChange={e => setFormData({ ...formData, totalAmount: e.target.value === '' ? 0 : Number(e.target.value) })} />
                                 </div>
                                 <div style={FormStyles.group}>
                                     <label style={FormStyles.label}>Status</label>

@@ -15,6 +15,7 @@ export const usersAPI = {
     update: (id: string, data: object) => axios.patch(`${BASE}/users/${id}`, data),
     delete: (id: string) => axios.delete(`${BASE}/users/${id}`),
     toggleActive: (id: string) => axios.patch(`${BASE}/users/${id}/toggle-active`),
+    shareCredentials: (data: { userId: string; password?: string }) => axios.post(`${BASE}/users/share-credentials`, data),
 };
 
 // ── Customers ─────────────────────────────────────────────────────────────
@@ -72,6 +73,11 @@ export const invoicesAPI = {
 
 // ── Stats ─────────────────────────────────────────────────────────────────
 export const statsAPI = {
-    getSummary: () => axios.get(`${BASE}/stats/summary`),
-    getMonthly: () => axios.get(`${BASE}/stats/monthly`),
+    getSummary: (params?: { start?: string; end?: string }) => axios.get(`${BASE}/stats/summary`, { params }),
+    getMonthly: (params?: { start?: string; end?: string }) => axios.get(`${BASE}/stats/monthly`, { params }),
+};
+
+// ── Cron ──────────────────────────────────────────────────────────────────
+export const cronAPI = {
+    triggerReminders: () => axios.post(`${BASE}/cron/trigger-reminders`),
 };

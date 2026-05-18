@@ -6,7 +6,7 @@ import DeleteConfirmation from '../components/DeleteConfirmation';
 import { AdminStyles, UsersPageStyles, ModalStyles, FormStyles, StatusBadge } from '../styles/AllStyles';
 import { useAuth } from '../context/AuthContext';
 
-const emptyForm = { name: '', username: '', password: '', role: 'Cashier' as 'Admin' | 'Cashier' };
+const emptyForm = { name: '', username: '', password: '', email: '', role: 'Cashier' as 'Admin' | 'Cashier' };
 
 const UsersPage: React.FC = () => {
     const { getComponentStyle } = useContext(StyleContext);
@@ -34,21 +34,46 @@ const UsersPage: React.FC = () => {
     const openAdd = () => { setSelected(null); setFormData({ ...emptyForm }); setIsModalOpen(true); };
     const openEdit = (u: User) => {
         setSelected(u);
-        setFormData({ name: u.name, username: u.username, password: '', role: u.role });
+        setFormData({ name: u.name, username: u.username, password: '', email: u.email || '', role: u.role });
         setIsModalOpen(true);
+    };
+
+    const handleShare = async () => {
+        if (!selected) return;
+        if (!selected.email && !formData.email) {
+            alert('Please provide an email address first.');
+            return;
+        }
+        try {
+            await usersAPI.shareCredentials({ userId: selected._id, password: formData.password || undefined });
+            alert('Credentials shared successfully!');
+        } catch {
+            alert('Failed to share credentials');
+        }
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
             const payload = selected
-                ? { name: formData.name, role: formData.role, ...(formData.password ? { password: formData.password } : {}) }
+                ? { name: formData.name, role: formData.role, email: formData.email, ...(formData.password ? { password: formData.password } : {}) }
                 : formData;
+            let res;
             if (selected) {
-                await usersAPI.update(selected._id, payload);
+                res = await usersAPI.update(selected._id, payload);
             } else {
-                await usersAPI.create(formData);
+                res = await usersAPI.create(formData);
             }
+
+            // After creation/update, offer to share credentials if email is present
+            if (formData.email && (selected || res.data._id)) {
+                const userId = selected ? selected._id : res.data._id;
+                if (window.confirm('User saved. Do you want to share credentials via email now?')) {
+                    await usersAPI.shareCredentials({ userId, password: formData.password || undefined });
+                    alert('Credentials shared successfully!');
+                }
+            }
+
             fetch();
             setIsModalOpen(false);
         } catch (err) {
@@ -166,6 +191,12 @@ const UsersPage: React.FC = () => {
                                         <option value="Admin">Admin</option>
                                     </select>
                                 </div>
+                                <div style={FormStyles.group}>
+                                    <label style={FormStyles.label}>Email</label>
+                                    <input type="email" style={FormStyles.input} value={formData.email}
+                                        onChange={e => setFormData({ ...formData, email: e.target.value })}
+                                        placeholder="user@example.com" />
+                                </div>
                                 {!selected && (
                                     <div style={FormStyles.group}>
                                         <label style={FormStyles.label}>Username *</label>
@@ -192,6 +223,13 @@ const UsersPage: React.FC = () => {
                             </div>
                             <div style={FormStyles.buttonRow}>
                                 <button type="button" style={FormStyles.cancelButton} onClick={() => setIsModalOpen(false)}>Cancel</button>
+                                {selected && (
+                                    <button type="button" 
+                                        onClick={handleShare}
+                                        style={{ ...FormStyles.submitButton, background: '#10b981' }}>
+                                        Share Credentials
+                                    </button>
+                                )}
                                 <button type="submit" style={FormStyles.submitButton}>{selected ? 'Save Changes' : 'Create User'}</button>
                             </div>
                         </form>
