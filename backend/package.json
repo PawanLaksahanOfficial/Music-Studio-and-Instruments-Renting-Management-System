@@ -4,8 +4,9 @@
   "description": "ELVI Music Studio Management System - Backend API",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js",
+    "start": "node dist/server.js",
+    "dev": "nodemon server.ts",
+    "build": "tsc",
     "seed": "node seed.js"
   },
   "dependencies": {
@@ -21,6 +22,14 @@
     "uuid": "^11.1.0"
   },
   "devDependencies": {
-    "nodemon": "^3.0.0"
+    "@types/bcryptjs": "^2.4.6",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^25.9.0",
+    "@types/uuid": "^10.0.0",
+    "nodemon": "^3.1.14",
+    "ts-node": "^10.9.2",
+    "typescript": "^6.0.3"
   }
 }

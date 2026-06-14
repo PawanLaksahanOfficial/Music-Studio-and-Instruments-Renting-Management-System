@@ -5,6 +5,7 @@ import QRScanner from '../components/QRScanner';
 import Inventory from '../types/Inventory';
 import Customer from '../types/Customer';
 import { FormStyles, StatusBadge } from '../styles/AllStyles';
+import { QRScannerPageStyles as styles } from '../styles/QRScannerPageStyles';
 
 // ─── types ────────────────────────────────────────────────────────────────────
 type Stage = 'idle' | 'scanning' | 'found' | 'unavailable' | 'not_found'
@@ -221,7 +222,7 @@ const QRScannerPage: React.FC = () => {
 
     // ─── render ──────────────────────────────────────────────────────────────
     return (
-        <div style={{ maxWidth: 820, fontFamily: "'Inter','Segoe UI',sans-serif" }}>
+        <div style={styles.container}>
 
             {/* Page header */}
             <div style={ps.pageHeader}>
@@ -234,19 +235,19 @@ const QRScannerPage: React.FC = () => {
 
             {/* ── IDLE ─────────────────────────────────────────────────────── */}
             {stage === 'idle' && (
-                <div style={ps.card}>
-                    <div style={{ textAlign:'center', padding:'40px 20px'}}>
-                        <div style={{ fontSize:80, marginBottom:18 }}>🔲</div>
-                        <h3 style={ps.cardTitle}>Scan an Instrument QR Code</h3>
-                        <p style={ps.cardSub}>
+                <div style={styles.card}>
+                    <div style={styles.cardHeader}>
+                        <div style={styles.cardIconLarge}>🔲</div>
+                        <h3 style={styles.cardTitle}>Scan an Instrument QR Code</h3>
+                        <p style={styles.cardSub}>
                             Each inventory item has a unique QR code. Scan it to instantly load its
                             details, enter rental dates, and generate a cost-calculated invoice.
                         </p>
-                        {errMsg && <p style={ps.err}>{errMsg}</p>}
-                        <button onClick={() => setStage('scanning')} style={ps.primaryBtn}>
+                        {errMsg && <p style={styles.err}>{errMsg}</p>}
+                        <button onClick={() => setStage('scanning')} style={styles.primaryBtn}>
                             📷 Open Webcam Scanner
                         </button>
-                        <p style={ps.tipText}>
+                        <p style={styles.tipText}>
                             💡 Tip: Go to <strong>Inventory</strong> → <em>View QR</em> to open the digital QR
                             for any instrument, then scan it here.
                         </p>
@@ -256,15 +257,15 @@ const QRScannerPage: React.FC = () => {
 
             {/* ── NOT FOUND ────────────────────────────────────────────────── */}
             {stage === 'not_found' && (
-                <div style={ps.card}>
-                    <div style={{ textAlign:'center', padding:'36px 20px' }}>
-                        <div style={{ fontSize:68, marginBottom:14 }}>❓</div>
-                        <h3 style={ps.cardTitle}>QR Code Not Recognised</h3>
-                        <p style={ps.cardSub}>
-                            No inventory item matched: <code style={ps.code}>{scannedId}</code>
+                <div style={styles.card}>
+                    <div style={styles.noRecognisedHeader}>
+                        <div style={styles.cardIconMedium}>❓</div>
+                        <h3 style={styles.cardTitle}>QR Code Not Recognised</h3>
+                        <p style={styles.cardSub}>
+                            No inventory item matched: <code style={styles.code}>{scannedId}</code>
                         </p>
-                        <div style={{ display:'flex', gap:10, justifyContent:'center', marginTop:20 }}>
-                            <button onClick={() => setStage('scanning')} style={ps.primaryBtn}>Scan Again</button>
+                        <div style={styles.buttonRow}>
+                            <button onClick={() => setStage('scanning')} style={styles.primaryBtn}>Scan Again</button>
                             <button onClick={reset} style={ps.ghostBtn}>Reset</button>
                         </div>
                     </div>
@@ -273,15 +274,15 @@ const QRScannerPage: React.FC = () => {
 
             {/* ── UNAVAILABLE ──────────────────────────────────────────────── */}
             {stage === 'unavailable' && item && (
-                <div style={ps.card}>
-                    <div style={{ textAlign:'center', padding:'36px 20px' }}>
-                        <div style={{ fontSize:68, marginBottom:14 }}>🚫</div>
-                        <h3 style={ps.cardTitle}>{item.itemName}</h3>
-                        <p style={ps.cardSub}>
+                <div style={styles.card}>
+                    <div style={styles.noRecognisedHeader}>
+                        <div style={styles.cardIconMedium}>🚫</div>
+                        <h3 style={styles.cardTitle}>{item.itemName}</h3>
+                        <p style={styles.cardSub}>
                             This item is currently <span style={statusBadge(item.status)}>{item.status}</span> and cannot be rented.
                         </p>
-                        <div style={{ display:'flex', gap:10, justifyContent:'center', marginTop:20 }}>
-                            <button onClick={() => setStage('scanning')} style={ps.primaryBtn}>Scan Another</button>
+                        <div style={styles.buttonRow}>
+                            <button onClick={() => setStage('scanning')} style={styles.primaryBtn}>Scan Another</button>
                             <button onClick={reset} style={ps.ghostBtn}>Reset</button>
                         </div>
                     </div>
@@ -290,14 +291,14 @@ const QRScannerPage: React.FC = () => {
 
             {/* ── FOUND: item card ─────────────────────────────────────────── */}
             {stage === 'found' && item && (
-                <div style={ps.card}>
+                <div style={styles.card}>
                     {/* item summary */}
-                    <div style={ps.itemBanner}>
-                        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
+                    <div style={styles.itemBanner}>
+                        <div style={styles.bannerHeader}>
                             <div>
-                                <div style={ps.stepLabel}>✅ Instrument Found</div>
-                                <h3 style={{ margin:0, fontSize:20, fontWeight:800, color:'#0f172a' }}>{item.itemName}</h3>
-                                <p style={{ margin:'4px 0 0', fontSize:13, color:'#64748b' }}>
+                                <div style={styles.stepLabel}>✅ Instrument Found</div>
+                                <h3 style={styles.itemName}>{item.itemName}</h3>
+                                <p style={styles.itemModel}>
                                     {[item.brand, item.model].filter(Boolean).join(' / ')}
                                     {item.brand || item.model ? ' · ' : ''}
                                     Serial: <strong>{item.serialNumber}</strong>
@@ -305,19 +306,19 @@ const QRScannerPage: React.FC = () => {
                             </div>
                             <div style={{ textAlign:'right' }}>
                                 <span style={statusBadge(item.status)}>{item.status}</span>
-                                <div style={{ marginTop:8, fontSize:20, fontWeight:800, color:'#2563eb' }}>
+                                <div style={styles.itemPrice}>
                                     Rs. {item.baseRentalPrice}
-                                    <span style={{ fontSize:12, fontWeight:500, color:'#64748b' }}>/day</span>
+                                    <span style={styles.priceDay}>/day</span>
                                 </div>
                             </div>
                         </div>
                     </div>
 
                     {/* ── rental form ── */}
-                    <form onSubmit={handlePreview} style={{ marginTop:20 }}>
-                        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
+                    <form onSubmit={handlePreview} style={styles.rentalForm}>
+                        <div style={styles.formGrid}>
 
-                            <div style={{ ...FormStyles.group, gridColumn:'1 / -1' }}>
+                            <div style={styles.fullWidthGroup}>
                                 <label style={FormStyles.label}>Customer *</label>
                                 <select style={FormStyles.select} value={form.customerId} required
                                     onChange={e => setForm({ ...form, customerId: e.target.value })}>
@@ -352,9 +353,9 @@ const QRScannerPage: React.FC = () => {
                                     <span>{days} day{days !== 1 ? 's' : ''} × Rs. {rate}/day</span>
                                     <strong>Rs. {subtotal}</strong>
                                 </div>
-                                <div style={{ ...ps.costRow, alignItems:'center' }}>
+                                <div style={ps.costRow}>
                                     <span>Tax / Other charges (Rs.)</span>
-                                    <input type="number" min={0} value={form.tax === 0 ? '' : form.tax} style={{ ...FormStyles.input, width:110, margin:0, padding:'6px 10px' }}
+                                    <input type="number" min={0} value={form.tax === 0 ? '' : form.tax} style={styles.taxInput}
                                         onChange={e => setForm({ ...form, tax: e.target.value === '' ? 0 : Number(e.target.value) })} />
                                 </div>
                                 <div style={ps.costTotal}>
@@ -364,7 +365,7 @@ const QRScannerPage: React.FC = () => {
                             </div>
                         )}
 
-                        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginTop:16 }}>
+                        <div style={styles.formGrid}>
                             <div style={FormStyles.group}>
                                 <label style={FormStyles.label}>Payment Method *</label>
                                 <select style={FormStyles.select} value={form.paymentMethod}
@@ -384,17 +385,17 @@ const QRScannerPage: React.FC = () => {
                                 </select>
                             </div>
 
-                            <div style={{ ...FormStyles.group, gridColumn:'1 / -1' }}>
+                            <div style={styles.fullWidthGroup}>
                                 <label style={FormStyles.label}>Notes</label>
                                 <textarea style={FormStyles.textarea} value={form.notes} placeholder="Optional notes…"
                                     onChange={e => setForm({ ...form, notes: e.target.value })} />
                             </div>
                         </div>
 
-                        {errMsg && <p style={{ ...ps.err, marginTop:12 }}>{errMsg}</p>}
+                        {errMsg && <p style={{ ...styles.err, marginTop:12 }}>{errMsg}</p>}
 
                         <div style={ps.btnRow}>
-                            <button type="submit" style={ps.primaryBtn}>Preview Invoice →</button>
+                            <button type="submit" style={styles.primaryBtn}>Preview Invoice →</button>
                             <button type="button" onClick={() => setStage('scanning')} style={ps.ghostBtn}>Scan Again</button>
                             <button type="button" onClick={reset} style={ps.ghostBtn}>Reset</button>
                         </div>
@@ -404,45 +405,45 @@ const QRScannerPage: React.FC = () => {
 
             {/* ── PREVIEW / DONE: printable invoice ────────────────────────── */}
             {(stage === 'preview' || stage === 'done') && item && (
-                <div style={ps.card}>
-                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
+                <div style={styles.card}>
+                    <div style={styles.previewHeader}>
                         <div>
-                            <div style={ps.stepLabel}>{stage === 'done' ? '✅ Invoice Saved!' : '👁 Invoice Preview'}</div>
-                            <h3 style={{ margin:0, fontSize:20, fontWeight:800, color:'#0f172a' }}>
+                            <div style={styles.stepLabel}>{stage === 'done' ? '✅ Invoice Saved!' : '👁 Invoice Preview'}</div>
+                            <h3 style={styles.itemName}>
                                 {stage === 'done' ? result?.invoiceId : 'Review before saving'}
                             </h3>
                         </div>
                         <div style={{ display:'flex', gap:8 }}>
-                            {stage === 'done' && <button onClick={handlePrint} style={ps.printBtn}>🖨 Print</button>}
+                            {stage === 'done' && <button onClick={handlePrint} style={styles.printBtn}>🖨 Print</button>}
                             {stage === 'preview' && <button onClick={() => setStage('found')} style={ps.ghostBtn}>← Edit</button>}
                         </div>
                     </div>
 
                     {/* ── printable area ── */}
-                    <div ref={printRef} style={{ border:'1px solid #e2e8f0', borderRadius:10, padding:24 }}>
+                    <div ref={printRef} style={styles.printArea}>
 
                         {/* invoice header */}
-                        <div className="header" style={{ display:'flex', justifyContent:'space-between', paddingBottom:16, borderBottom:'2px solid #e2e8f0', marginBottom:20 }}>
+                        <div style={styles.printHeader}>
                             <div>
-                                <div className="logo" style={{ fontSize:22, fontWeight:800, color:'#2563eb' }}>🎵 ELVI Music Studio</div>
-                                <div className="meta" style={{ fontSize:12, color:'#64748b', marginTop:4 }}>
+                                <div style={styles.logo}>🎵 ELVI Music Studio</div>
+                                <div style={styles.meta}>
                                     {stage === 'done'
                                         ? <><strong>Invoice:</strong> {result?.invoiceId}  ·  <strong>Rental:</strong> {result?.rentalId}</>
                                         : <em>Preview — not yet saved</em>
                                     }
                                 </div>
-                                <div style={{ fontSize:12, color:'#64748b' }}>Date: {fmtDate(today())}</div>
+                                <div style={styles.date}>Date: {fmtDate(today())}</div>
                             </div>
-                            <div style={{ textAlign:'right', fontSize:13 }}>
-                                <div style={{ fontWeight:700, fontSize:15 }}>
+                            <div style={styles.customerInfo}>
+                                <div style={styles.customerName}>
                                     {customers.find(c => c._id === form.customerId)?.firstName}{' '}
                                     {customers.find(c => c._id === form.customerId)?.lastName}
                                 </div>
-                                <div style={{ color:'#64748b' }}>
+                                <div style={styles.customerDetail}>
                                     {customers.find(c => c._id === form.customerId)?.phone}
                                 </div>
                                 {customers.find(c => c._id === form.customerId)?.email && (
-                                    <div style={{ color:'#64748b' }}>
+                                    <div style={styles.customerDetail}>
                                         {customers.find(c => c._id === form.customerId)?.email}
                                     </div>
                                 )}
@@ -450,7 +451,7 @@ const QRScannerPage: React.FC = () => {
                         </div>
 
                         {/* instrument details */}
-                        <div className="grid2" style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, background:'#f8fafc', borderRadius:8, padding:'12px 16px', marginBottom:16, border:'1px solid #e2e8f0' }}>
+                        <div style={styles.itemDetailGrid}>
                             {[
                                 { l:'Instrument',  v: item.itemName },
                                 { l:'Serial #',    v: item.serialNumber },
@@ -458,71 +459,71 @@ const QRScannerPage: React.FC = () => {
                                 { l:'Return Date', v: fmtDate(form.returnDate) },
                             ].map(r => (
                                 <div key={r.l}>
-                                    <div className="lbl" style={{ fontSize:10, fontWeight:700, color:'#94a3b8', textTransform:'uppercase', letterSpacing:'.5px', marginBottom:3 }}>{r.l}</div>
-                                    <div className="val" style={{ fontSize:13, fontWeight:600, color:'#1e293b' }}>{r.v}</div>
+                                    <div style={styles.detailLabel}>{r.l}</div>
+                                    <div style={styles.detailValue}>{r.v}</div>
                                 </div>
                             ))}
                         </div>
 
                         {/* line items */}
-                        <table style={{ width:'100%', borderCollapse:'collapse', marginBottom:0 }}>
+                        <table style={styles.printTable}>
                             <thead>
                                 <tr>
                                     {['Description','Days','Rate / Day','Total'].map(h => (
-                                        <th key={h} style={{ background:'#f8fafc', padding:'9px 12px', textAlign:'left', fontSize:11, fontWeight:600, color:'#64748b', textTransform:'uppercase', letterSpacing:'.4px', border:'1px solid #e2e8f0' }}>{h}</th>
+                                        <th key={h} style={styles.printTh}>{h}</th>
                                     ))}
                                 </tr>
                             </thead>
                             <tbody>
                                 <tr>
-                                    <td style={tc}>{item.itemName} Rental</td>
-                                    <td style={tc}>{days}</td>
-                                    <td style={tc}>Rs. {rate}</td>
-                                    <td style={{ ...tc, fontWeight:600 }}>Rs. {subtotal}</td>
+                                    <td style={styles.printTd}>{item.itemName} Rental</td>
+                                    <td style={styles.printTd}>{days}</td>
+                                    <td style={styles.printTd}>Rs. {rate}</td>
+                                    <td style={{ ...styles.printTd, ...styles.printTdBold }}>Rs. {subtotal}</td>
                                 </tr>
-                                <tr style={{ background:'#f8fafc' }}>
-                                    <td colSpan={3} style={{ ...tc, textAlign:'right', fontWeight:600 }}>Subtotal</td>
-                                    <td style={{ ...tc, fontWeight:600 }}>Rs. {subtotal}</td>
+                                <tr style={styles.subtotalRow}>
+                                    <td colSpan={3} style={{ ...styles.printTd, textAlign:'right', fontWeight:600 }}>Subtotal</td>
+                                    <td style={{ ...styles.printTd, fontWeight:600 }}>Rs. {subtotal}</td>
                                 </tr>
                                 {Number(form.tax) > 0 && (
                                     <tr>
-                                        <td colSpan={3} style={{ ...tc, textAlign:'right' }}>Tax / Other</td>
-                                        <td style={tc}>Rs. {form.tax}</td>
+                                        <td colSpan={3} style={{ ...styles.printTd, textAlign:'right' }}>Tax / Other</td>
+                                        <td style={styles.printTd}>Rs. {form.tax}</td>
                                     </tr>
                                 )}
-                                <tr style={{ background:'#eff6ff' }}>
-                                    <td colSpan={3} style={{ ...tc, textAlign:'right', fontWeight:800, fontSize:15 }}>TOTAL</td>
-                                    <td style={{ ...tc, fontWeight:800, fontSize:15, color:'#2563eb' }}>Rs. {total}</td>
+                                <tr style={styles.totalRow}>
+                                    <td colSpan={3} style={{ ...styles.printTd, textAlign:'right', fontWeight:800, fontSize:15 }}>TOTAL</td>
+                                    <td style={{ ...styles.printTd, fontWeight:800, fontSize:15, color:'#2563eb' }}>Rs. {total}</td>
                                 </tr>
                             </tbody>
                         </table>
 
                         {/* footer row */}
-                        <div style={{ display:'flex', justifyContent:'space-between', marginTop:14, fontSize:13, color:'#64748b' }}>
-                            <span>Payment: <strong style={{ color:'#1e293b' }}>{form.paymentMethod}</strong></span>
+                        <div style={styles.footerRow}>
+                            <span>Payment: <strong style={styles.footerBold}>{form.paymentMethod}</strong></span>
                             <span style={form.paymentStatus === 'Paid' ? StatusBadge.paid : StatusBadge.pending}>{form.paymentStatus}</span>
                         </div>
                         {form.notes && (
-                            <div style={{ marginTop:10, padding:'8px 12px', background:'#f8fafc', borderRadius:6, fontSize:12, color:'#64748b' }}>
+                            <div style={styles.notesBox}>
                                 Notes: {form.notes}
                             </div>
                         )}
-                        <div style={{ marginTop:18, fontSize:11, color:'#94a3b8', textAlign:'center', borderTop:'1px solid #e2e8f0', paddingTop:10 }}>
+                        <div style={styles.thankYou}>
                             Thank you for choosing ELVI Music Studio
                         </div>
                     </div>
 
-                    {errMsg && <p style={{ ...ps.err, marginTop:14 }}>{errMsg}</p>}
+                    {errMsg && <p style={{ ...styles.err, marginTop:14 }}>{errMsg}</p>}
 
                     <div style={ps.btnRow}>
                         {stage === 'preview' && (
-                            <button onClick={handleSave} style={ps.primaryBtn} disabled={saving}>
+                            <button onClick={handleSave} style={styles.primaryBtn} disabled={saving}>
                                 {saving ? 'Saving…' : '💾 Save Invoice & Create Rental'}
                             </button>
                         )}
                         {stage === 'done' && (
                             <>
-                                <button onClick={handlePrint} style={ps.primaryBtn}>🖨 Print Invoice</button>
+                                <button onClick={handlePrint} style={styles.primaryBtn}>🖨 Print Invoice</button>
                                 <button onClick={reset} style={ps.ghostBtn}>📷 Scan Next Item</button>
                                 <button onClick={() => navigate('/admin/invoices')} style={ps.ghostBtn}>View All Invoices</button>
                             </>

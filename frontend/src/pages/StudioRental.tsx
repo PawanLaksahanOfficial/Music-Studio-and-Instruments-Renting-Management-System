@@ -4,7 +4,10 @@ import { studioRentalsAPI, customersAPI } from '../services/api';
 import StudioRental from '../types/StudioRental';
 import Customer from '../types/Customer';
 import DeleteConfirmation from '../components/DeleteConfirmation';
-import { AdminStyles, RentalPageStyles, ModalStyles, FormStyles, StatusBadge } from '../styles/AllStyles';
+import { AdminPanelStyles } from '../styles/AdminPanelStyles';
+import { StudioRentalStyles } from '../styles/StudioRentalStyles';
+import { ModalStyles, FormStyles } from '../styles/AllStyles';
+import { StatusBadge } from '../styles/DesignTokens';
 
 const ROOMS = ['Studio A', 'Studio B', 'Studio C', 'Recording Booth'];
 
@@ -21,8 +24,8 @@ const emptyForm = {
 
 const StudioRentals: React.FC = () => {
     const { getComponentStyle } = useContext(StyleContext);
-    const layoutStyles = getComponentStyle('adminLayout') as typeof AdminStyles;
-    const styles = getComponentStyle('studioRentals') as typeof RentalPageStyles;
+    const layoutStyles = getComponentStyle('adminLayout') as typeof AdminPanelStyles;
+    const styles = getComponentStyle('studioRentals') as typeof StudioRentalStyles;
 
     const [rentals, setRentals] = useState<StudioRental[]>([]);
     const [customers, setCustomers] = useState<Customer[]>([]);
@@ -89,21 +92,21 @@ const StudioRentals: React.FC = () => {
         filterStatus === 'All' || r.status === filterStatus
     );
 
-    if (loading && rentals.length === 0) return <div style={{ padding: '20px', color: '#64748b' }}>Loading studio rentals...</div>;
+    if (loading && rentals.length === 0) return <div style={styles.loading}>Loading studio rentals...</div>;
 
     return (
         <div style={styles.container}>
             <div style={styles.header}>
-                <div>
-                    <h2 style={{ margin: 0, fontSize: '22px', fontWeight: 700, color: '#1e293b' }}>Studio Rentals</h2>
-                    <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#64748b' }}>{rentals.length} total bookings</p>
+                <div style={styles.titleSection}>
+                    <h2 style={styles.title}>Studio Rentals</h2>
+                    <p style={styles.subtitle}>{rentals.length} total bookings</p>
                 </div>
                 <button style={styles.actionButton} onClick={openAdd}>+ New Booking</button>
             </div>
 
-            <div style={{ display: 'flex', gap: '12px', marginBottom: '20px' }}>
+            <div style={styles.filterRow}>
                 <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
-                    style={{ ...FormStyles.select, maxWidth: '200px' }}>
+                    style={styles.statusSelect}>
                     <option value="All">All Statuses</option>
                     <option value="Confirmed">Confirmed</option>
                     <option value="Completed">Completed</option>
@@ -111,12 +114,12 @@ const StudioRentals: React.FC = () => {
                 </select>
             </div>
 
-            <div style={layoutStyles.tableWrap}>
-                <table style={layoutStyles.table}>
+            <div style={styles.tableWrapper}>
+                <table style={styles.table}>
                     <thead>
                         <tr>
                             {['Booking ID', 'Customer', 'Room', 'Start Time', 'End Time', 'Hours', 'Total', 'Status', 'Payment', 'Notes', 'Actions'].map(h => (
-                                <th key={h} style={layoutStyles.th}>{h}</th>
+                                <th key={h} style={styles.th}>{h}</th>
                             ))}
                         </tr>
                     </thead>
@@ -126,42 +129,42 @@ const StudioRentals: React.FC = () => {
                                 onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#f8fafc')}
                                 onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
                             >
-                                <td style={{ ...layoutStyles.td, fontFamily: 'monospace', fontSize: '12px', color: '#64748b' }}>{r.bookingId}</td>
-                                <td style={{ ...layoutStyles.td, fontWeight: 600 }}>{r.customer.firstName} {r.customer.lastName}</td>
-                                <td style={layoutStyles.td}>{r.roomName}</td>
-                                <td style={{ ...layoutStyles.td, fontSize: '12px' }}>{new Date(r.startTime).toLocaleString()}</td>
-                                <td style={{ ...layoutStyles.td, fontSize: '12px' }}>{new Date(r.endTime).toLocaleString()}</td>
-                                <td style={layoutStyles.td}>{r.durationHours ? `${r.durationHours}h` : '—'}</td>
-                                <td style={layoutStyles.td}>Rs. {r.totalAmount}</td>
-                                <td style={layoutStyles.td}><span style={statusStyle(r.status)}>{r.status}</span></td>
-                                <td style={layoutStyles.td}>
+                                <td style={{ ...styles.td, ...styles.tdMonospace }}>{r.bookingId}</td>
+                                <td style={{ ...styles.td, ...styles.tdBold }}>{r.customer.firstName} {r.customer.lastName}</td>
+                                <td style={styles.td}>{r.roomName}</td>
+                                <td style={{ ...styles.td, ...styles.tdSmall }}>{new Date(r.startTime).toLocaleString()}</td>
+                                <td style={{ ...styles.td, ...styles.tdSmall }}>{new Date(r.endTime).toLocaleString()}</td>
+                                <td style={styles.td}>{r.durationHours ? `${r.durationHours}h` : '—'}</td>
+                                <td style={styles.td}>Rs. {r.totalAmount}</td>
+                                <td style={styles.td}><span style={statusStyle(r.status)}>{r.status}</span></td>
+                                <td style={styles.td}>
                                     <span style={r.paymentStatus === 'Paid' ? StatusBadge.paid : StatusBadge.pending}>{r.paymentStatus}</span>
                                 </td>
-                                <td style={{ ...layoutStyles.td, fontSize: '12px', color: '#64748b', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.notes}>
+                                <td style={{ ...styles.td, ...styles.tdNotes }} title={r.notes}>
                                     {r.notes || '—'}
                                 </td>
-                                <td style={layoutStyles.td}>
-                                    <div style={{ display: 'flex', gap: '6px' }}>
+                                <td style={styles.td}>
+                                    <div style={styles.actionGroup}>
                                         <button onClick={() => openEdit(r)}
-                                            style={{ border: 'none', background: '#3b82f6', color: '#fff', padding: '5px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}>
+                                            style={styles.editButton}>
                                             Edit
                                         </button>
                                         <button onClick={() => { setToDelete(r); setIsDeleteOpen(true); }}
-                                            style={{ border: 'none', background: '#ef4444', color: '#fff', padding: '5px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}>
+                                            style={styles.deleteButton}>
                                             Delete
                                         </button>
                                     </div>
                                 </td>
                             </tr>
                         )) : (
-                            <tr><td colSpan={10} style={{ textAlign: 'center', padding: '30px', color: '#94a3b8' }}>No studio bookings found.</td></tr>
+                            <tr><td colSpan={10} style={styles.noRentals}>No studio bookings found.</td></tr>
                         )}
                     </tbody>
                 </table>
             </div>
 
             {isModalOpen && (
-                <div style={ModalStyles.overlay}>
+                <div style={styles.overlay}>
                     <div style={ModalStyles.contentLg}>
                         <div style={ModalStyles.titleRow}>
                             <h3 style={ModalStyles.title}>{selected ? `Edit Booking: ${selected.bookingId}` : 'New Studio Booking'}</h3>
@@ -170,7 +173,7 @@ const StudioRentals: React.FC = () => {
                         <form onSubmit={handleSubmit}>
                             <div style={FormStyles.grid2}>
                                 <div style={FormStyles.group}>
-                                    <label style={FormStyles.label}>Customer *</label>
+                                    <label style={styles.formLabel}>Customer *</label>
                                     <select style={FormStyles.select} value={formData.customerId} required
                                         onChange={e => setFormData({ ...formData, customerId: e.target.value })}>
                                         <option value="">Select Customer</option>
@@ -180,29 +183,29 @@ const StudioRentals: React.FC = () => {
                                     </select>
                                 </div>
                                 <div style={FormStyles.group}>
-                                    <label style={FormStyles.label}>Room *</label>
+                                    <label style={styles.formLabel}>Room *</label>
                                     <select style={FormStyles.select} value={formData.roomName}
                                         onChange={e => setFormData({ ...formData, roomName: e.target.value })}>
                                         {ROOMS.map(r => <option key={r}>{r}</option>)}
                                     </select>
                                 </div>
                                 <div style={FormStyles.group}>
-                                    <label style={FormStyles.label}>Start Time *</label>
+                                    <label style={styles.formLabel}>Start Time *</label>
                                     <input type="datetime-local" style={FormStyles.input} value={formData.startTime} required
                                         onChange={e => setFormData({ ...formData, startTime: e.target.value })} />
                                 </div>
                                 <div style={FormStyles.group}>
-                                    <label style={FormStyles.label}>End Time *</label>
+                                    <label style={styles.formLabel}>End Time *</label>
                                     <input type="datetime-local" style={FormStyles.input} value={formData.endTime} required
                                         onChange={e => setFormData({ ...formData, endTime: e.target.value })} />
                                 </div>
                                 <div style={FormStyles.group}>
-                                    <label style={FormStyles.label}>Total Amount (Rs.) *</label>
+                                    <label style={styles.formLabel}>Total Amount (Rs.) *</label>
                                     <input type="number" style={FormStyles.input} value={formData.totalAmount === 0 ? '' : formData.totalAmount} required min={0}
                                         onChange={e => setFormData({ ...formData, totalAmount: e.target.value === '' ? 0 : Number(e.target.value) })} />
                                 </div>
                                 <div style={FormStyles.group}>
-                                    <label style={FormStyles.label}>Status</label>
+                                    <label style={styles.formLabel}>Status</label>
                                     <select style={FormStyles.select} value={formData.status}
                                         onChange={e => setFormData({ ...formData, status: e.target.value })}>
                                         <option value="Confirmed">Confirmed</option>
@@ -211,15 +214,15 @@ const StudioRentals: React.FC = () => {
                                     </select>
                                 </div>
                                 <div style={FormStyles.group}>
-                                    <label style={FormStyles.label}>Payment Status</label>
+                                    <label style={styles.formLabel}>Payment Status</label>
                                     <select style={FormStyles.select} value={formData.paymentStatus}
                                         onChange={e => setFormData({ ...formData, paymentStatus: e.target.value })}>
                                         <option value="Pending">Pending</option>
                                         <option value="Paid">Paid</option>
                                     </select>
                                 </div>
-                                <div style={{ ...FormStyles.group, gridColumn: '1 / -1' }}>
-                                    <label style={FormStyles.label}>Notes</label>
+                                <div style={styles.notesGroup}>
+                                    <label style={styles.formLabel}>Notes</label>
                                     <textarea style={FormStyles.textarea} value={formData.notes}
                                         onChange={e => setFormData({ ...formData, notes: e.target.value })} />
                                 </div>

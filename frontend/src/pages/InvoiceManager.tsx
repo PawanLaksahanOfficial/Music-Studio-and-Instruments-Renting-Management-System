@@ -5,14 +5,17 @@ import Invoice, { InvoiceItem } from '../types/Invoice';
 import Customer from '../types/Customer';
 import Rental from '../types/Rental';
 import StudioRental from '../types/StudioRental';
-import { AdminStyles, InvoicePageStyles, ModalStyles, FormStyles, StatusBadge } from '../styles/AllStyles';
+import { AdminPanelStyles } from '../styles/AdminPanelStyles';
+import { InvoiceManagerStyles } from '../styles/InvoiceManagerStyles';
+import { ModalStyles, FormStyles } from '../styles/AllStyles';
+import { StatusBadge } from '../styles/DesignTokens';
 
 const emptyLine: InvoiceItem = { description: '', quantity: 1, unitPrice: 0, total: 0 };
 
 const InvoiceManager: React.FC = () => {
     const { getComponentStyle } = useContext(StyleContext);
-    const layoutStyles = getComponentStyle('adminLayout') as typeof AdminStyles;
-    const styles = getComponentStyle('invoices') as typeof InvoicePageStyles;
+    const layoutStyles = getComponentStyle('adminLayout') as typeof AdminPanelStyles;
+    const styles = getComponentStyle('invoices') as typeof InvoiceManagerStyles;
 
     const [invoices, setInvoices] = useState<Invoice[]>([]);
     const [customers, setCustomers] = useState<Customer[]>([]);
@@ -173,24 +176,24 @@ const InvoiceManager: React.FC = () => {
         win.print();
     };
 
-    if (loading && invoices.length === 0) return <div style={{ padding: '20px', color: '#64748b' }}>Loading invoices...</div>;
+    if (loading && invoices.length === 0) return <div style={styles.loading}>Loading invoices...</div>;
 
     return (
         <div style={styles.container}>
             <div style={styles.header}>
-                <div>
-                    <h2 style={{ margin: 0, fontSize: '22px', fontWeight: 700, color: '#1e293b' }}>Invoice Manager</h2>
-                    <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#64748b' }}>{invoices.length} invoices</p>
+                <div style={styles.titleSection}>
+                    <h2 style={styles.title}>Invoice Manager</h2>
+                    <p style={styles.subtitle}>{invoices.length} invoices</p>
                 </div>
                 <button style={styles.actionButton} onClick={() => setIsModalOpen(true)}>+ New Invoice</button>
             </div>
 
-            <div style={layoutStyles.tableWrap}>
-                <table style={layoutStyles.table}>
+            <div style={styles.tableWrapper}>
+                <table style={styles.table}>
                     <thead>
                         <tr>
                             {['Invoice ID', 'Customer', 'Linked To', 'Amount', 'Method', 'Payment', 'Created By', 'Date', 'Actions'].map(h => (
-                                <th key={h} style={layoutStyles.th}>{h}</th>
+                                <th key={h} style={styles.th}>{h}</th>
                             ))}
                         </tr>
                     </thead>
@@ -200,32 +203,32 @@ const InvoiceManager: React.FC = () => {
                                 onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#f8fafc')}
                                 onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
                             >
-                                <td style={{ ...layoutStyles.td, fontFamily: 'monospace', fontSize: '12px', color: '#64748b' }}>{inv.invoiceId}</td>
-                                <td style={{ ...layoutStyles.td, fontWeight: 600 }}>{inv.customer.firstName} {inv.customer.lastName}</td>
-                                <td style={{ ...layoutStyles.td, fontSize: '12px', color: '#64748b' }}>
+                                <td style={{ ...styles.td, ...styles.tdMonospace }}>{inv.invoiceId}</td>
+                                <td style={{ ...styles.td, ...styles.tdBold }}>{inv.customer.firstName} {inv.customer.lastName}</td>
+                                <td style={{ ...styles.td, ...styles.tdSmall }}>
                                     {[
                                         ...(inv.productRentals || []).map(r => r.rentalId),
                                         ...(inv.studioRentals || []).map(r => r.bookingId)
                                     ].join(', ') || 'Manual'}
                                 </td>
-                                <td style={{ ...layoutStyles.td, fontWeight: 600 }}>Rs. {inv.totalAmount}</td>
-                                <td style={layoutStyles.td}>{inv.paymentMethod}</td>
-                                <td style={layoutStyles.td}>
+                                <td style={{ ...styles.td, ...styles.tdBold }}>Rs. {inv.totalAmount}</td>
+                                <td style={styles.td}>{inv.paymentMethod}</td>
+                                <td style={styles.td}>
                                     <span style={inv.paymentStatus === 'Paid' ? styles.paidBadge : styles.pendingBadge}>
                                         {inv.paymentStatus}
                                     </span>
                                 </td>
-                                <td style={{ ...layoutStyles.td, fontSize: '12px' }}>{inv.createdBy?.name || '—'}</td>
-                                <td style={{ ...layoutStyles.td, fontSize: '12px', color: '#64748b' }}>{new Date(inv.createdAt).toLocaleDateString()}</td>
-                                <td style={layoutStyles.td}>
-                                    <div style={{ display: 'flex', gap: '6px' }}>
+                                <td style={{ ...styles.td, fontSize: '12px' }}>{inv.createdBy?.name || '—'}</td>
+                                <td style={{ ...styles.td, ...styles.tdSmall }}>{new Date(inv.createdAt).toLocaleDateString()}</td>
+                                <td style={styles.td}>
+                                    <div style={styles.actionGroup}>
                                         <button onClick={() => setViewInvoice(inv)}
-                                            style={{ border: 'none', background: '#3b82f6', color: '#fff', padding: '5px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}>
+                                            style={styles.viewButton}>
                                             View
                                         </button>
                                         {inv.paymentStatus === 'Pending' && (
                                             <button onClick={() => updatePayment(inv, 'Paid')}
-                                                style={{ border: 'none', background: '#10b981', color: '#fff', padding: '5px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}>
+                                                style={styles.paidButton}>
                                                 Mark Paid
                                             </button>
                                         )}
@@ -233,7 +236,7 @@ const InvoiceManager: React.FC = () => {
                                 </td>
                             </tr>
                         )) : (
-                            <tr><td colSpan={9} style={{ textAlign: 'center', padding: '30px', color: '#94a3b8' }}>No invoices yet.</td></tr>
+                            <tr><td colSpan={9} style={styles.noInvoices}>No invoices yet.</td></tr>
                         )}
                     </tbody>
                 </table>
@@ -241,25 +244,25 @@ const InvoiceManager: React.FC = () => {
 
             {/* Create Invoice Modal */}
             {isModalOpen && (
-                <div style={ModalStyles.overlay}>
-                    <div style={{ ...ModalStyles.contentLg, maxWidth: '700px' }}>
-                        <div style={ModalStyles.titleRow}>
+                <div style={styles.overlay}>
+                    <div style={styles.modalContent}>
+                        <div style={styles.titleRow}>
                             <h3 style={ModalStyles.title}>Create Invoice</h3>
                             <button style={ModalStyles.closeBtn} onClick={() => setIsModalOpen(false)}>✕</button>
                         </div>
                         <form onSubmit={handleSubmit}>
                             <div style={FormStyles.grid2}>
                                 <div style={FormStyles.group}>
-                                    <label style={FormStyles.label}>Customer *</label>
-                                    <select style={FormStyles.select} value={formData.customerId} required
+                                    <label style={styles.formLabel}>Customer *</label>
+                                    <select style={styles.formSelect} value={formData.customerId} required
                                         onChange={e => setFormData({ ...formData, customerId: e.target.value })}>
                                         <option value="">Select Customer</option>
                                         {customers.map(c => <option key={c._id} value={c._id}>{c.firstName} {c.lastName}</option>)}
                                     </select>
                                 </div>
                                 <div style={FormStyles.group}>
-                                    <label style={FormStyles.label}>Payment Method *</label>
-                                    <select style={FormStyles.select} value={formData.paymentMethod}
+                                    <label style={styles.formLabel}>Payment Method *</label>
+                                    <select style={styles.formSelect} value={formData.paymentMethod}
                                         onChange={e => setFormData({ ...formData, paymentMethod: e.target.value })}>
                                         <option>Cash</option>
                                         <option>Card</option>
@@ -267,8 +270,8 @@ const InvoiceManager: React.FC = () => {
                                     </select>
                                 </div>
                                 <div style={FormStyles.group}>
-                                    <label style={FormStyles.label}>Link to Product Rentals (Hold Ctrl to select multiple)</label>
-                                    <select multiple style={{ ...FormStyles.select, height: '80px' }} 
+                                    <label style={styles.formLabel}>Link to Product Rentals (Hold Ctrl to select multiple)</label>
+                                    <select multiple style={{ ...styles.formSelect, ...styles.selectMulti }} 
                                         value={formData.productRentalIds}
                                         onChange={e => {
                                             const values = Array.from(e.target.selectedOptions, option => option.value);
@@ -280,8 +283,8 @@ const InvoiceManager: React.FC = () => {
                                     </select>
                                 </div>
                                 <div style={FormStyles.group}>
-                                    <label style={FormStyles.label}>Link to Studio Bookings (Hold Ctrl to select multiple)</label>
-                                    <select multiple style={{ ...FormStyles.select, height: '80px' }} 
+                                    <label style={styles.formLabel}>Link to Studio Bookings (Hold Ctrl to select multiple)</label>
+                                    <select multiple style={{ ...styles.formSelect, ...styles.selectMulti }} 
                                         value={formData.studioRentalIds}
                                         onChange={e => {
                                             const values = Array.from(e.target.selectedOptions, option => option.value);
@@ -295,20 +298,20 @@ const InvoiceManager: React.FC = () => {
                             </div>
 
                             {/* Line Items */}
-                            <div style={{ marginTop: '20px' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                                    <label style={{ ...FormStyles.label, textTransform: 'uppercase' }}>Line Items</label>
+                            <div style={styles.lineItemsHeader}>
+                                <div style={styles.lineItemsHeader}>
+                                    <label style={styles.lineItemsLabel}>Line Items</label>
                                     <button type="button" onClick={addLine}
-                                        style={{ background: 'none', border: '1px solid #3b82f6', color: '#3b82f6', padding: '4px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}>
+                                        style={styles.addLineButton}>
                                         + Add Line
                                     </button>
                                 </div>
-                                <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden' }}>
-                                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                <div style={styles.lineItemsTableWrapper}>
+                                    <table style={styles.lineItemsTable}>
                                         <thead>
-                                            <tr style={{ background: '#f8fafc' }}>
+                                            <tr>
                                                 {['Description', 'Days', 'Unit Price', 'Total', ''].map(h => (
-                                                    <th key={h} style={{ padding: '8px 12px', textAlign: 'left', fontSize: '11px', color: '#64748b', fontWeight: 600, borderBottom: '1px solid #e2e8f0' }}>{h}</th>
+                                                    <th key={h} style={styles.lineItemsTh}>{h}</th>
                                                 ))}
                                             </tr>
                                         </thead>
@@ -317,28 +320,28 @@ const InvoiceManager: React.FC = () => {
                                                 const isLinked = line.description.startsWith('Product Rental:') || line.description.startsWith('Studio Booking:');
                                                 return (
                                                     <tr key={idx}>
-                                                        <td style={{ padding: '6px 8px' }}>
-                                                            <input style={{ ...FormStyles.input, margin: 0 }} value={line.description} required
+                                                        <td style={styles.lineItemsTd}>
+                                                            <input style={styles.lineItemsInput} value={line.description} required
                                                                 readOnly={isLinked}
                                                                 onChange={e => updateLine(idx, 'description', e.target.value)} />
                                                         </td>
-                                                        <td style={{ padding: '6px 8px', width: '80px' }}>
-                                                            <input type="number" min={1} style={{ ...FormStyles.input, margin: 0 }} value={line.quantity === 0 ? '' : line.quantity}
+                                                        <td style={{ ...styles.lineItemsTd, width: '80px' }}>
+                                                            <input type="number" min={1} style={styles.lineItemsInput} value={line.quantity === 0 ? '' : line.quantity}
                                                                 readOnly={isLinked}
                                                                 onChange={e => updateLine(idx, 'quantity', e.target.value === '' ? 0 : Number(e.target.value))} />
                                                         </td>
-                                                        <td style={{ padding: '6px 8px', width: '120px' }}>
-                                                            <input type="number" min={0} style={{ ...FormStyles.input, margin: 0 }} value={line.unitPrice === 0 ? '' : line.unitPrice}
+                                                        <td style={{ ...styles.lineItemsTd, width: '120px' }}>
+                                                            <input type="number" min={0} style={styles.lineItemsInput} value={line.unitPrice === 0 ? '' : line.unitPrice}
                                                                 readOnly={isLinked}
                                                                 onChange={e => updateLine(idx, 'unitPrice', e.target.value === '' ? 0 : Number(e.target.value))} />
                                                         </td>
-                                                        <td style={{ padding: '6px 12px', fontWeight: 600, fontSize: '14px', whiteSpace: 'nowrap' }}>
+                                                        <td style={styles.lineItemsTotalTd}>
                                                             Rs. {line.total}
                                                         </td>
-                                                        <td style={{ padding: '6px 8px' }}>
+                                                        <td style={styles.lineItemsTd}>
                                                             {(formData.items.length > 1 || isLinked) && (
                                                                 <button type="button" onClick={() => removeLine(idx)}
-                                                                    style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '16px' }}>✕</button>
+                                                                    style={styles.removeLineButton}>✕</button>
                                                             )}
                                                         </td>
                                                     </tr>
@@ -347,28 +350,28 @@ const InvoiceManager: React.FC = () => {
                                         </tbody>
                                     </table>
                                 </div>
-                                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px', gap: '24px', fontSize: '14px' }}>
-                                    <span style={{ color: '#64748b' }}>Subtotal: <strong>Rs. {subtotal}</strong></span>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <span style={{ color: '#64748b' }}>Tax (Rs.):</span>
-                                        <input type="number" min={0} value={formData.tax === 0 ? '' : formData.tax} style={{ ...FormStyles.input, width: '90px', margin: 0 }}
+                                <div style={styles.totalsWrapper}>
+                                    <span style={styles.subtotalLabel}>Subtotal: <strong>Rs. {subtotal}</strong></span>
+                                    <div style={styles.taxWrapper}>
+                                        <span style={styles.taxLabel}>Tax (Rs.):</span>
+                                        <input type="number" min={0} value={formData.tax === 0 ? '' : formData.tax} style={styles.taxInput}
                                             onChange={e => setFormData({ ...formData, tax: e.target.value === '' ? 0 : Number(e.target.value) })} />
                                     </div>
-                                    <span style={{ fontWeight: 700, fontSize: '16px', color: '#1e293b' }}>Total: Rs. {total}</span>
+                                    <span style={styles.totalLabel}>Total: Rs. {total}</span>
                                 </div>
                             </div>
 
-                            <div style={{ ...FormStyles.grid2, marginTop: '16px' }}>
+                            <div style={styles.formGrid}>
                                 <div style={FormStyles.group}>
-                                    <label style={FormStyles.label}>Payment Status</label>
-                                    <select style={FormStyles.select} value={formData.paymentStatus}
+                                    <label style={styles.formLabel}>Payment Status</label>
+                                    <select style={styles.formSelect} value={formData.paymentStatus}
                                         onChange={e => setFormData({ ...formData, paymentStatus: e.target.value })}>
                                         <option>Pending</option>
                                         <option>Paid</option>
                                     </select>
                                 </div>
-                                <div style={{ ...FormStyles.group, gridColumn: '1 / -1' }}>
-                                    <label style={FormStyles.label}>Notes</label>
+                                <div style={styles.notesGroup}>
+                                    <label style={styles.formLabel}>Notes</label>
                                     <textarea style={FormStyles.textarea} value={formData.notes}
                                         onChange={e => setFormData({ ...formData, notes: e.target.value })} />
                                 </div>
@@ -385,81 +388,81 @@ const InvoiceManager: React.FC = () => {
 
             {/* View / Print Invoice Modal */}
             {viewInvoice && (
-                <div style={ModalStyles.overlay}>
-                    <div style={{ ...ModalStyles.contentLg, maxWidth: '640px' }}>
-                        <div style={ModalStyles.titleRow}>
-                            <h3 style={ModalStyles.title}>Invoice {viewInvoice.invoiceId}</h3>
-                            <div style={{ display: 'flex', gap: '8px' }}>
+                <div style={styles.overlay}>
+                    <div style={styles.viewModalContent}>
+                        <div style={styles.titleRow}>
+                            <h3 style={styles.title}>Invoice {viewInvoice.invoiceId}</h3>
+                            <div style={styles.printButtonGroup}>
                                 <button onClick={handlePrint}
-                                    style={{ background: '#1e293b', color: '#fff', border: 'none', padding: '7px 14px', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
+                                    style={styles.printButton}>
                                     🖨 Print
                                 </button>
                                 <button style={ModalStyles.closeBtn} onClick={() => setViewInvoice(null)}>✕</button>
                             </div>
                         </div>
                         <div ref={printRef}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px' }}>
-                                <div>
-                                    <div style={{ fontSize: '20px', fontWeight: 800, color: '#3b82f6' }}>🎵 ELVI Music Studio</div>
-                                    <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>Invoice #{viewInvoice.invoiceId}</div>
-                                    <div style={{ fontSize: '12px', color: '#64748b' }}>Date: {new Date(viewInvoice.createdAt).toLocaleDateString()}</div>
+                            <div style={styles.printHeader}>
+                                <div style={styles.logoSection}>
+                                    <div style={styles.logo}>🎵 ELVI Music Studio</div>
+                                    <div style={styles.invoiceMeta}>Invoice #{viewInvoice.invoiceId}</div>
+                                    <div style={styles.dateMeta}>Date: {new Date(viewInvoice.createdAt).toLocaleDateString()}</div>
                                 </div>
-                                <div style={{ textAlign: 'right', fontSize: '13px', color: '#1e293b' }}>
-                                    <strong>{viewInvoice.customer.firstName} {viewInvoice.customer.lastName}</strong>
+                                <div style={styles.customerSection}>
+                                    <strong style={styles.customerName}>{viewInvoice.customer.firstName} {viewInvoice.customer.lastName}</strong>
                                     <div>{viewInvoice.customer.phone}</div>
                                     {viewInvoice.customer.email && <div>{viewInvoice.customer.email}</div>}
                                     {viewInvoice.productRentals && viewInvoice.productRentals.length > 0 && (
-                                        <div style={{ color: '#64748b', fontSize: '12px' }}>
+                                        <div style={styles.linkedRentals}>
                                             Rentals: {viewInvoice.productRentals.map(r => r.rentalId).join(', ')}
                                         </div>
                                     )}
                                     {viewInvoice.studioRentals && viewInvoice.studioRentals.length > 0 && (
-                                        <div style={{ color: '#64748b', fontSize: '12px' }}>
+                                        <div style={styles.linkedRentals}>
                                             Bookings: {viewInvoice.studioRentals.map(r => r.bookingId).join(', ')}
                                         </div>
                                     )}
                                 </div>
                             </div>
-                            <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '16px' }}>
+                            <table style={styles.printTable}>
                                 <thead>
-                                    <tr style={{ background: '#f8fafc' }}>
+                                    <tr>
                                         {['Description', 'days', 'Unit Price', 'Total'].map(h => (
-                                            <th key={h} style={{ padding: '10px 12px', textAlign: 'left', fontSize: '12px', color: '#64748b', fontWeight: 600, border: '1px solid #e2e8f0' }}>{h}</th>
+                                            <th key={h} style={styles.printTh}>{h}</th>
                                         ))}
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {viewInvoice.items.map((line, i) => (
                                         <tr key={i}>
-                                            <td style={{ padding: '10px 12px', border: '1px solid #e2e8f0', fontSize: '13px' }}>{line.description}</td>
-                                            <td style={{ padding: '10px 12px', border: '1px solid #e2e8f0', fontSize: '13px' }}>{line.quantity}</td>
-                                            <td style={{ padding: '10px 12px', border: '1px solid #e2e8f0', fontSize: '13px' }}>Rs. {line.unitPrice}</td>
-                                            <td style={{ padding: '10px 12px', border: '1px solid #e2e8f0', fontSize: '13px', fontWeight: 600 }}>Rs. {line.total}</td>
+                                            <td style={styles.printTd}>{line.description}</td>
+                                            <td style={styles.printTd}>{line.quantity}</td>
+                                            <td style={styles.printTd}>Rs. {line.unitPrice}</td>
+                                            <td style={{ ...styles.printTd, ...styles.printTdBold }}>Rs. {line.total}</td>
                                         </tr>
                                     ))}
-                                    <tr style={{ background: '#f8fafc' }}>
-                                        <td colSpan={3} style={{ padding: '10px 12px', border: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 600 }}>Subtotal</td>
-                                        <td style={{ padding: '10px 12px', border: '1px solid #e2e8f0', fontWeight: 600 }}>Rs. {viewInvoice.subtotal}</td>
+                                    <tr style={styles.printSubtotalRow}>
+                                        <td colSpan={3} style={styles.printSubtotalLabel}>Subtotal</td>
+                                        <td style={styles.printSubtotalValue}>Rs. {viewInvoice.subtotal}</td>
                                     </tr>
                                     {viewInvoice.tax > 0 && (
                                         <tr>
-                                            <td colSpan={3} style={{ padding: '10px 12px', border: '1px solid #e2e8f0', textAlign: 'right' }}>Tax</td>
-                                            <td style={{ padding: '10px 12px', border: '1px solid #e2e8f0' }}>Rs. {viewInvoice.tax}</td>
+                                            <td colSpan={3} style={styles.printTaxLabel}>Tax</td>
+                                            <td style={styles.printTaxValue}>Rs. {viewInvoice.tax}</td>
                                         </tr>
                                     )}
-                                    <tr style={{ background: '#eff6ff' }}>
-                                        <td colSpan={3} style={{ padding: '12px', border: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 800, fontSize: '15px' }}>TOTAL</td>
-                                        <td style={{ padding: '12px', border: '1px solid #e2e8f0', fontWeight: 800, fontSize: '15px', color: '#3b82f6' }}>Rs. {viewInvoice.totalAmount}</td>
+                                    <tr style={styles.printTotalRow}>
+                                        <td colSpan={3} style={styles.printTotalLabel}>TOTAL</td>
+                                        <td style={styles.printTotalValue}>Rs. {viewInvoice.totalAmount}</td>
                                     </tr>
                                 </tbody>
                             </table>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#64748b' }}>
-                                <div>Payment Method: <strong style={{ color: '#1e293b' }}>{viewInvoice.paymentMethod}</strong></div>
-                                <div>Status: <span style={viewInvoice.paymentStatus === 'Paid' ? StatusBadge.paid : StatusBadge.pending}>{viewInvoice.paymentStatus}</span></div>
-                                <div>Issued by: <strong style={{ color: '#1e293b' }}>{viewInvoice.createdBy?.name}</strong></div>
+                            <div style={styles.printFooter}>
+                                <div style={styles.footerItem}>Payment Method: <strong style={styles.footerBold}>{viewInvoice.paymentMethod}</strong></div>
+                                <div style={styles.footerItem}>Status: <span style={viewInvoice.paymentStatus === 'Paid' ? styles.paidBadge : styles.pendingBadge}>{viewInvoice.paymentStatus}</span></div>
+                                <div style={styles.footerItem}>Issued by: <strong style={styles.footerBold}>{viewInvoice.createdBy?.name}</strong></div>
                             </div>
                             {viewInvoice.notes && (
-                                <div style={{ marginTop: '12px', padding: '10px', background: '#f8fafc', borderRadius: '6px', fontSize: '12px', color: '#64748b' }}>
+                                <div style={styles.notesBox}>
                                     Notes: {viewInvoice.notes}
                                 </div>
                             )}

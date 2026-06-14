@@ -1,5 +1,5 @@
-import React, { useContext } from 'react';
-import { StyleContext } from '../context/StyleContext';
+import React from 'react';
+import { DeleteConfirmationStyles as styles } from '../styles/DeleteConfirmationStyles';
 
 interface Props {
     isOpen: boolean;
@@ -9,31 +9,28 @@ interface Props {
 }
 
 const DeleteConfirmation = ({ isOpen, onClose, onConfirm, itemName }: Props) => {
-    const { getComponentStyle } = useContext(StyleContext);
-    const styles = getComponentStyle("addUpdateRentals");
-
     if (!isOpen) return null;
 
     return (
-        <div style={styles.modalOverlay}>
-            <div style={{ ...styles.modalContent, maxWidth: '400px', textAlign: 'center' }}>
-                <div style={{ fontSize: '50px', color: '#e74c3c', marginBottom: '10px' }}>⚠️</div>
-                <h3 style={{ margin: '0 0 10px 0' }}>Delete Rental?</h3>
-                <p style={{ color: '#666', marginBottom: '25px' }}>
-                    Are you sure you want to delete the rental for <strong>{itemName}</strong>? 
+        <div style={styles.overlay}>
+            <div style={styles.modalContent}>
+                <div style={styles.warningIcon}>⚠️</div>
+                <h3 style={styles.title}>Delete Rental?</h3>
+                <p style={styles.message}>
+                    Are you sure you want to delete the rental for <strong>{itemName}</strong>?
                     This will return the item to inventory.
                 </p>
 
-                <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
-                    <button 
-                        onClick={onClose} 
-                        style={{ ...styles.cancelButton, flex: 1 }}
+                <div style={styles.buttonRow}>
+                    <button
+                        onClick={onClose}
+                        style={styles.cancelButton}
                     >
                         Keep It
                     </button>
-                    <button 
-                        onClick={onConfirm} 
-                        style={{ ...styles.submitButton, backgroundColor: '#e74c3c', flex: 1 }}
+                    <button
+                        onClick={onConfirm}
+                        style={styles.submitButton}
                     >
                         Yes, Delete
                     </button>

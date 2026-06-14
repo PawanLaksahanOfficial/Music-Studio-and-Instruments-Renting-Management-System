@@ -3,14 +3,17 @@ import { StyleContext } from '../context/StyleContext';
 import { usersAPI } from '../services/api';
 import User from '../types/User';
 import DeleteConfirmation from '../components/DeleteConfirmation';
-import { AdminStyles, UsersPageStyles, ModalStyles, FormStyles, StatusBadge } from '../styles/AllStyles';
+import { AdminPanelStyles } from '../styles/AdminPanelStyles';
+import { UsersPageStyles } from '../styles/UsersPageStyles';
+import { ModalStyles, FormStyles } from '../styles/AllStyles';
+import { StatusBadge } from '../styles/DesignTokens';
 import { useAuth } from '../context/AuthContext';
 
 const emptyForm = { name: '', username: '', password: '', email: '', role: 'Cashier' as 'Admin' | 'Cashier' };
 
 const UsersPage: React.FC = () => {
     const { getComponentStyle } = useContext(StyleContext);
-    const layoutStyles = getComponentStyle('adminLayout') as typeof AdminStyles;
+    const layoutStyles = getComponentStyle('adminLayout') as typeof AdminPanelStyles;
     const styles = getComponentStyle('users') as typeof UsersPageStyles;
     const { user: currentUser } = useAuth();
     const [users, setUsers] = useState<User[]>([]);
@@ -95,24 +98,24 @@ const UsersPage: React.FC = () => {
         catch { alert('Delete failed'); }
     };
 
-    if (loading && users.length === 0) return <div style={{ padding: '20px', color: '#64748b' }}>Loading users...</div>;
+    if (loading && users.length === 0) return <div style={styles.loading}>Loading users...</div>;
 
     return (
         <div style={styles.container}>
             <div style={styles.header}>
-                <div>
-                    <h2 style={{ margin: 0, fontSize: '22px', fontWeight: 700, color: '#1e293b' }}>Staff Users</h2>
-                    <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#64748b' }}>Manage admin and cashier accounts</p>
+                <div style={styles.titleSection}>
+                    <h2 style={styles.title}>Staff Users</h2>
+                    <p style={styles.subtitle}>Manage admin and cashier accounts</p>
                 </div>
-                <button style={styles.actionButton} onClick={openAdd}>+ New User</button>
+                <button style={styles.actionButton} onClick={() => openAdd()}>+ New User</button>
             </div>
 
-            <div style={layoutStyles.tableWrap}>
-                <table style={layoutStyles.table}>
+            <div style={styles.tableWrapper}>
+                <table style={styles.table}>
                     <thead>
                         <tr>
                             {['Name', 'Username', 'Role', 'Status', 'Last Login', 'Actions'].map(h => (
-                                <th key={h} style={layoutStyles.th}>{h}</th>
+                                <th key={h} style={styles.th}>{h}</th>
                             ))}
                         </tr>
                     </thead>
@@ -122,37 +125,37 @@ const UsersPage: React.FC = () => {
                                 onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#f8fafc')}
                                 onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
                             >
-                                <td style={{ ...layoutStyles.td, fontWeight: 600 }}>
+                                <td style={{ ...styles.td, ...styles.tdBold }}>
                                     {u.name}
                                     {u._id === currentUser?._id && (
                                         <span style={{ ...StatusBadge.active, marginLeft: '8px', fontSize: '10px' }}>You</span>
                                     )}
                                 </td>
-                                <td style={{ ...layoutStyles.td, fontFamily: 'monospace', color: '#64748b' }}>{u.username}</td>
-                                <td style={layoutStyles.td}>
+                                <td style={{ ...styles.td, ...styles.tdMonospace }}>{u.username}</td>
+                                <td style={styles.td}>
                                     <span style={u.role === 'Admin' ? StatusBadge.admin : StatusBadge.cashier}>{u.role}</span>
                                 </td>
-                                <td style={layoutStyles.td}>
+                                <td style={styles.td}>
                                     <span style={u.isActive ? StatusBadge.active : StatusBadge.inactive}>
                                         {u.isActive ? 'Active' : 'Inactive'}
                                     </span>
                                 </td>
-                                <td style={{ ...layoutStyles.td, color: '#64748b', fontSize: '12px' }}>
+                                <td style={{ ...styles.td, ...styles.tdSmall }}>
                                     {u.lastLogin ? new Date(u.lastLogin).toLocaleString() : 'Never'}
                                 </td>
-                                <td style={layoutStyles.td}>
-                                    <div style={{ display: 'flex', gap: '6px' }}>
+                                <td style={styles.td}>
+                                    <div style={styles.actionGroup}>
                                         <button onClick={() => openEdit(u)}
-                                            style={{ border: 'none', background: '#3b82f6', color: '#fff', padding: '5px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}>
+                                            style={styles.editButton}>
                                             Edit
                                         </button>
                                         <button onClick={() => toggleActive(u)}
-                                            style={{ border: 'none', background: u.isActive ? '#f59e0b' : '#10b981', color: '#fff', padding: '5px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}>
+                                            style={styles.toggleActiveButton(u.isActive)}>
                                             {u.isActive ? 'Deactivate' : 'Activate'}
                                         </button>
                                         {u._id !== currentUser?._id && (
                                             <button onClick={() => { setToDelete(u); setIsDeleteOpen(true); }}
-                                                style={{ border: 'none', background: '#ef4444', color: '#fff', padding: '5px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}>
+                                                style={styles.deleteButton}>
                                                 Delete
                                             </button>
                                         )}
@@ -172,7 +175,7 @@ const UsersPage: React.FC = () => {
                             <button style={ModalStyles.closeBtn} onClick={() => setIsModalOpen(false)}>✕</button>
                         </div>
                         {!selected && (
-                            <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '12px', marginBottom: '16px', fontSize: '13px', color: '#1e40af' }}>
+                            <div style={styles.infoBox}>
                                 💡 Credentials will be shared with the staff member. They'll use these to log in.
                             </div>
                         )}
@@ -206,16 +209,16 @@ const UsersPage: React.FC = () => {
                                 )}
                                 <div style={FormStyles.group}>
                                     <label style={FormStyles.label}>{selected ? 'New Password (leave blank to keep)' : 'Password *'}</label>
-                                    <div style={{ position: 'relative' }}>
+                                    <div style={styles.passwordWrapper}>
                                         <input
                                             type={showPassword ? 'text' : 'password'}
-                                            style={{ ...FormStyles.input, paddingRight: '70px' }}
+                                            style={{ ...FormStyles.input, ...styles.passwordInput }}
                                             value={formData.password}
                                             required={!selected}
                                             onChange={e => setFormData({ ...formData, password: e.target.value })}
                                         />
                                         <button type="button" onClick={() => setShowPassword(!showPassword)}
-                                            style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', fontSize: '12px' }}>
+                                            style={styles.passwordToggle}>
                                             {showPassword ? 'Hide' : 'Show'}
                                         </button>
                                     </div>
@@ -224,9 +227,9 @@ const UsersPage: React.FC = () => {
                             <div style={FormStyles.buttonRow}>
                                 <button type="button" style={FormStyles.cancelButton} onClick={() => setIsModalOpen(false)}>Cancel</button>
                                 {selected && (
-                                    <button type="button" 
+                                    <button type="button"
                                         onClick={handleShare}
-                                        style={{ ...FormStyles.submitButton, background: '#10b981' }}>
+                                        style={{ ...FormStyles.submitButton, ...styles.shareButton }}>
                                         Share Credentials
                                     </button>
                                 )}

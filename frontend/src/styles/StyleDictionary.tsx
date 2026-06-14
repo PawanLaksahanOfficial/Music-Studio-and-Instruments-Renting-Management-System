@@ -1,33 +1,35 @@
-import {
-    AdminStyles,
-    AddUpdateRentalStyles,
-    ProductRentalsStyles,
-    InventoryPageStyles,
-    CustomersPageStyles,
-    UsersPageStyles,
-    InvoicePageStyles,
-    RentalPageStyles,
-    StatsPageStyles,
-    LoginStyles,
-    ModalStyles,
-    FormStyles,
-    CardStyles,
-    StatusBadge,
-} from './AllStyles';
+import { AdminPanelStyles } from './AdminPanelStyles';
+import { AddUpdateRentalStyles } from './AddUpdateRentalStyles';
+import { ProductRentalsStyles } from './ProductRentalsStyles';
+import { InventoryPageStyles } from './InventoryPageStyles';
+import { CustomerPageStyles } from './CustomerPageStyles';
+import { UsersPageStyles } from './UsersPageStyles';
+import { InvoiceManagerStyles } from './InvoiceManagerStyles';
+import { StudioRentalStyles } from './StudioRentalStyles';
+import { StatusPageStyles } from './StatusPageStyles';
+import { LoginPageStyles } from './LoginPageStyles';
+import { DeleteConfirmationStyles } from './DeleteConfirmationStyles';
+import { QRScannerPageStyles } from './QRScannerPageStyles';
+import { QRScannerComponentStyles } from './QRScannerComponentStyles';
+import { AdminFooterStyles } from './AdminFooterStyles';
+import { ProtectedRouteStyles } from './ProtectedRouteStyles';
+import { StatusBadge } from './DesignTokens';
 
 export const styleDictionary = new Map<string, object>();
 
-styleDictionary.set('adminLayout',     AdminStyles);
+styleDictionary.set('adminLayout',      AdminPanelStyles);
 styleDictionary.set('addUpdateRentals', AddUpdateRentalStyles);
-styleDictionary.set('productRentals',  ProductRentalsStyles);
-styleDictionary.set('inventory',       InventoryPageStyles);
-styleDictionary.set('customers',       CustomersPageStyles);
-styleDictionary.set('users',           UsersPageStyles);
-styleDictionary.set('invoices',        InvoicePageStyles);
-styleDictionary.set('studioRentals',   RentalPageStyles);
-styleDictionary.set('stats',           StatsPageStyles);
-styleDictionary.set('login',           LoginStyles);
-styleDictionary.set('modal',           ModalStyles);
-styleDictionary.set('form',            FormStyles);
-styleDictionary.set('cards',           CardStyles);
-styleDictionary.set('status',          StatusBadge);
+styleDictionary.set('productRentals',   ProductRentalsStyles);
+styleDictionary.set('inventory',        InventoryPageStyles);
+styleDictionary.set('customers',        CustomerPageStyles);
+styleDictionary.set('users',            UsersPageStyles);
+styleDictionary.set('invoices',         InvoiceManagerStyles);
+styleDictionary.set('studioRentals',    StudioRentalStyles);
+styleDictionary.set('stats',            StatusPageStyles);
+styleDictionary.set('login',            LoginPageStyles);
+styleDictionary.set('deleteConfirm',    DeleteConfirmationStyles);
+styleDictionary.set('qrScannerPage',    QRScannerPageStyles);
+styleDictionary.set('qrScannerComp',    QRScannerComponentStyles);
+styleDictionary.set('adminFooter',      AdminFooterStyles);
+styleDictionary.set('protectedRoute',   ProtectedRouteStyles);
+styleDictionary.set('status',           StatusBadge);

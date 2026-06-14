@@ -4,11 +4,13 @@ import axios from 'axios';
 import Rental from '@/types/Rental';
 import AddUpdateRental from './AddUpdateRental';
 import DeleteConfirmation from "../components/DeleteConfirmation";
+import { AdminPanelStyles } from '../styles/AdminPanelStyles';
+import { ProductRentalsStyles } from '../styles/ProductRentalsStyles';
 
 const ProductRentals = () => {
     const { getComponentStyle } = useContext(StyleContext);
-    const layoutStyles = getComponentStyle("adminLayout");
-    const pageStyles = getComponentStyle("productRentals");   
+    const layoutStyles = getComponentStyle("adminLayout") as typeof AdminPanelStyles;
+    const pageStyles = getComponentStyle("productRentals") as typeof ProductRentalsStyles;   
     const [rentals, setRentals] = useState<Rental[]>([]);
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -59,66 +61,66 @@ const ProductRentals = () => {
         }
     };
 
-    if (loading && rentals.length === 0) return <div style={{ padding: '20px' }}>Loading Rentals...</div>;
+    if (loading && rentals.length === 0) return <div style={pageStyles.loading}>Loading Rentals...</div>;
 
     return (
         <div style={pageStyles.container}>
             <header style={pageStyles.header}>
-                <h2 style={{ margin: 0, color: '#2c3e50' }}>Product Rentals</h2>
+                <h2 style={pageStyles.title}>Product Rentals</h2>
                 <button style={pageStyles.actionButton} onClick={handleAddNew}>
                     + New Rental
                 </button>
             </header>
-            <div style={layoutStyles.grid}>
-                <table style={layoutStyles.table}>
+            <div style={pageStyles.tableWrapper}>
+                <table style={pageStyles.table}>
                     <thead>
                         <tr>
-                            <th style={layoutStyles.th}>ID</th>
-                            <th style={layoutStyles.th}>Customer</th>
-                            <th style={layoutStyles.th}>Item</th>
-                            <th style={layoutStyles.th}>Due Date</th>
-                            <th style={layoutStyles.th}>Status</th>
-                            <th style={layoutStyles.th}>Total</th>
-                            <th style={layoutStyles.th}>Payment</th>
-                            <th style={layoutStyles.th}>Actions</th>
+                            <th style={pageStyles.th}>ID</th>
+                            <th style={pageStyles.th}>Customer</th>
+                            <th style={pageStyles.th}>Item</th>
+                            <th style={pageStyles.th}>Due Date</th>
+                            <th style={pageStyles.th}>Status</th>
+                            <th style={pageStyles.th}>Total</th>
+                            <th style={pageStyles.th}>Payment</th>
+                            <th style={pageStyles.th}>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {rentals.length > 0 ? (
                             rentals.map((item) => (
                                 <tr key={item._id}>
-                                    <td style={layoutStyles.td}>{item.rentalId}</td>
-                                    <td style={layoutStyles.td}>
+                                    <td style={pageStyles.td}>{item.rentalId}</td>
+                                    <td style={pageStyles.td}>
                                         {item.customer.firstName} {item.customer.lastName}
                                     </td>
-                                    <td style={layoutStyles.td}>
+                                    <td style={pageStyles.td}>
                                         <strong>{item.items[0]?.itemId?.itemName || 'N/A'}</strong>
                                     </td>
-                                    <td style={layoutStyles.td}>
+                                    <td style={pageStyles.td}>
                                         {new Date(item.dueDate).toLocaleDateString()}
                                     </td>
-                                    <td style={layoutStyles.td}>
+                                    <td style={pageStyles.td}>
                                         <span style={item.status === "Rented" ? pageStyles.statusRented : pageStyles.statusOverdue}>
                                             {item.status}
                                         </span>
                                     </td>
-                                    <td style={layoutStyles.td}>Rs.{item.totalAmount}</td>
-                                    <td style={layoutStyles.td}>
+                                    <td style={pageStyles.td}>Rs.{item.totalAmount}</td>
+                                    <td style={pageStyles.td}>
                                         <span style={item.paymentStatus === "Paid" ? pageStyles.paymentPaid : pageStyles.paymentPending}>
                                             {item.paymentStatus}
                                         </span>
                                     </td>
-                                    <td style={layoutStyles.td}>
-                                        <div style={{ display: 'flex', gap: '8px' }}>
+                                    <td style={pageStyles.td}>
+                                        <div style={pageStyles.actionGroup}>
                                             <button 
                                                 onClick={() => handleEdit(item)}
-                                                style={{ border: 'none', background: '#3498db', color: 'white', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer' }}
+                                                style={pageStyles.editButton}
                                             >
                                                 Edit
                                             </button>
                                             <button 
                                                 onClick={() => openDeleteModal(item)}
-                                                style={{ border: 'none', background: '#e74c3c', color: 'white', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer' }}
+                                                style={pageStyles.deleteButton}
                                             >
                                                 Delete
                                             </button>
@@ -128,7 +130,7 @@ const ProductRentals = () => {
                             ))
                         ) : (
                             <tr>
-                                <td colSpan={8} style={{ textAlign: 'center', padding: '20px' }}>No rentals found.</td>
+                                <td colSpan={8} style={pageStyles.noRentals}>No rentals found.</td>
                             </tr>
                         )}
                     </tbody>

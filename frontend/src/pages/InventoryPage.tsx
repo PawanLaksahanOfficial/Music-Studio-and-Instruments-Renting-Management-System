@@ -4,7 +4,10 @@ import { StyleContext } from '../context/StyleContext';
 import { inventoryAPI } from '../services/api';
 import Inventory from '../types/Inventory';
 import DeleteConfirmation from '../components/DeleteConfirmation';
-import { AdminStyles, InventoryPageStyles, ModalStyles, FormStyles, StatusBadge } from '../styles/AllStyles';
+import { AdminPanelStyles } from '../styles/AdminPanelStyles';
+import { InventoryPageStyles } from '../styles/InventoryPageStyles';
+import { ModalStyles, FormStyles } from '../styles/AllStyles';
+import { StatusBadge } from '../styles/DesignTokens';
 
 const CATEGORIES = ['Instruments', 'Audio Gear', 'Cables', 'Other'] as const;
 const STATUSES   = ['Available', 'Rented', 'Maintenance', 'Damaged', 'Lost'] as const;
@@ -46,7 +49,7 @@ const buildQRPayload = (item: Inventory) =>
 const InventoryPage: React.FC = () => {
     const navigate = useNavigate();
     const { getComponentStyle } = useContext(StyleContext);
-    const layoutStyles = getComponentStyle('adminLayout') as typeof AdminStyles;
+    const layoutStyles = getComponentStyle('adminLayout') as typeof AdminPanelStyles;
     const styles = getComponentStyle('inventory') as typeof InventoryPageStyles;
 
     const [items, setItems]               = useState<Inventory[]>([]);
@@ -117,7 +120,7 @@ const InventoryPage: React.FC = () => {
         navigate('/admin/scanner', { state: { prefillQR: item.qrCodeId } });
     };
 
-    if (loading && items.length === 0) return <div style={{ padding: 20, color: '#64748b' }}>Loading inventory...</div>;
+    if (loading && items.length === 0) return <div style={styles.loading}>Loading inventory...</div>;
 
     const qrPayload = qrItem ? encodeURIComponent(buildQRPayload(qrItem)) : '';
     const qrSrc     = qrItem ? `https://api.qrserver.com/v1/create-qr-code/?size=${qrSize}x${qrSize}&margin=1&data=${qrPayload}` : '';
@@ -126,32 +129,32 @@ const InventoryPage: React.FC = () => {
         <div style={styles.container}>
             {/* Header */}
             <div style={styles.header}>
-                <div>
-                    <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: '#1e293b' }}>Inventory</h2>
-                    <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b' }}>{items.length} items total</p>
+                <div style={styles.titleSection}>
+                    <h2 style={styles.title}>Inventory</h2>
+                    <p style={styles.subtitle}>{items.length} items total</p>
                 </div>
                 <button style={styles.actionButton} onClick={openAdd}>+ Add Item</button>
             </div>
 
             {/* Filters */}
-            <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
+            <div style={styles.filterRow}>
                 <input placeholder="Search name, serial, brand…" value={search}
                     onChange={e => setSearch(e.target.value)}
-                    style={{ ...FormStyles.input, maxWidth: 300 }} />
+                    style={styles.searchInput} />
                 <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
-                    style={{ ...FormStyles.select, maxWidth: 180 }}>
+                    style={styles.statusSelect}>
                     <option value="All">All Statuses</option>
                     {STATUSES.map(s => <option key={s}>{s}</option>)}
                 </select>
             </div>
 
             {/* Table */}
-            <div style={layoutStyles.tableWrap}>
-                <table style={layoutStyles.table}>
+            <div style={styles.tableWrapper}>
+                <table style={styles.table}>
                     <thead>
                         <tr>
                             {['Item Name','Category','Brand / Model','Serial #','Status','Daily Rate','Notes','Actions'].map(h => (
-                                <th key={h} style={layoutStyles.th}>{h}</th>
+                                <th key={h} style={styles.th}>{h}</th>
                             ))}
                         </tr>
                     </thead>
@@ -160,42 +163,42 @@ const InventoryPage: React.FC = () => {
                             <tr key={item._id}
                                 onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#f8fafc')}
                                 onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}>
-                                <td style={{ ...layoutStyles.td, fontWeight: 600 }}>{item.itemName}</td>
-                                <td style={layoutStyles.td}>{item.category}</td>
-                                <td style={layoutStyles.td}>{[item.brand, item.model].filter(Boolean).join(' — ') || '—'}</td>
-                                <td style={{ ...layoutStyles.td, fontFamily: 'monospace', fontSize: 12, color: '#64748b' }}>{item.serialNumber}</td>
-                                <td style={layoutStyles.td}><span style={statusStyle(item.status)}>{item.status}</span></td>
-                                <td style={layoutStyles.td}>Rs. {item.baseRentalPrice}/day</td>
-                                <td style={{ ...layoutStyles.td, fontSize: '12px', color: '#64748b', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={item.notes}>
+                                <td style={{ ...styles.td, ...styles.tdBold }}>{item.itemName}</td>
+                                <td style={styles.td}>{item.category}</td>
+                                <td style={styles.td}>{[item.brand, item.model].filter(Boolean).join(' — ') || '—'}</td>
+                                <td style={{ ...styles.td, ...styles.tdMonospace }}>{item.serialNumber}</td>
+                                <td style={styles.td}><span style={statusStyle(item.status)}>{item.status}</span></td>
+                                <td style={styles.td}>Rs. {item.baseRentalPrice}/day</td>
+                                <td style={{ ...styles.td, ...styles.tdNotes }} title={item.notes}>
                                     {item.notes || '—'}
                                 </td>
-                                <td style={layoutStyles.td}>
-                                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                                <td style={styles.td}>
+                                    <div style={styles.actionGroup}>
                                         {/* QR button */}
                                         <button onClick={() => openQR(item)}
-                                            style={{ border: 'none', background: '#6366f1', color: '#fff', padding: '5px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
+                                            style={styles.qrButton}>
                                             🔲 QR
                                         </button>
                                         {/* Direct scan shortcut */}
                                         {item.status === 'Available' && (
                                             <button onClick={() => scanNow(item)}
-                                                style={{ border: 'none', background: '#0ea5e9', color: '#fff', padding: '5px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
+                                                style={styles.scanButton}>
                                                 📷 Scan
                                             </button>
                                         )}
                                         <button onClick={() => openEdit(item)}
-                                            style={{ border: 'none', background: '#3b82f6', color: '#fff', padding: '5px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
+                                            style={styles.editButton}>
                                             Edit
                                         </button>
                                         <button onClick={() => { setToDelete(item); setIsDeleteOpen(true); }}
-                                            style={{ border: 'none', background: '#ef4444', color: '#fff', padding: '5px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
+                                            style={styles.deleteButton}>
                                             Delete
                                         </button>
                                     </div>
                                 </td>
                             </tr>
                         )) : (
-                            <tr><td colSpan={7} style={{ textAlign: 'center', padding: 30, color: '#94a3b8' }}>No items found.</td></tr>
+                            <tr><td colSpan={7} style={styles.noItems}>No items found.</td></tr>
                         )}
                     </tbody>
                 </table>
@@ -203,15 +206,15 @@ const InventoryPage: React.FC = () => {
 
             {/* ── QR Modal ── */}
             {qrItem && (
-                <div style={ModalStyles.overlay} onClick={() => setQrItem(null)}>
-                    <div style={{ ...ModalStyles.content, maxWidth: 420, textAlign: 'center' }} onClick={e => e.stopPropagation()}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                            <h3 style={{ ...ModalStyles.title, margin: 0 }}>{qrItem.itemName}</h3>
-                            <button style={ModalStyles.closeBtn} onClick={() => setQrItem(null)}>✕</button>
+                <div style={styles.overlay} onClick={() => setQrItem(null)}>
+                    <div style={styles.qrModalContent} onClick={e => e.stopPropagation()}>
+                        <div style={styles.qrModalTitleRow}>
+                            <h3 style={styles.qrModalTitle}>{qrItem.itemName}</h3>
+                            <button style={styles.qrModalCloseBtn} onClick={() => setQrItem(null)}>✕</button>
                         </div>
 
                         {/* item info */}
-                        <div style={{ background: '#f8fafc', borderRadius: 8, padding: '10px 14px', marginBottom: 16, textAlign: 'left', border: '1px solid #e2e8f0' }}>
+                        <div style={styles.itemInfoBox}>
                             {[
                                 ['Category',   qrItem.category],
                                 ['Brand',      qrItem.brand || '—'],
@@ -220,44 +223,44 @@ const InventoryPage: React.FC = () => {
                                 ['QR Code ID', qrItem.qrCodeId],
                                 ['Status',     qrItem.status],
                             ].map(([k, v]) => (
-                                <div key={k} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 4 }}>
-                                    <span style={{ color: '#64748b', fontWeight: 600 }}>{k}</span>
-                                    <span style={{ color: '#1e293b', fontWeight: 500 }}>{v}</span>
+                                <div key={k} style={styles.infoRow}>
+                                    <span style={styles.infoLabel}>{k}</span>
+                                    <span style={styles.infoValue}>{v}</span>
                                 </div>
                             ))}
                         </div>
 
                         {/* QR image */}
-                        <div style={{ display: 'inline-block', padding: 12, background: '#fff', border: '2px solid #e2e8f0', borderRadius: 10, marginBottom: 14 }}>
+                        <div style={styles.qrImageWrapper}>
                             <img src={qrSrc} alt="QR Code" width={qrSize} height={qrSize}
-                                style={{ display: 'block', borderRadius: 4 }} />
+                                style={styles.qrImage} />
                         </div>
 
-                        <p style={{ fontSize: 11, color: '#94a3b8', marginBottom: 16 }}>
+                        <p style={styles.qrDescription}>
                             This QR encodes the item ID, name, serial and daily rate.<br />
                             Scan it in the QR Scanner page to auto-fill an invoice.
                         </p>
 
                         {/* size slider */}
-                        <div style={{ marginBottom: 16 }}>
-                            <label style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>
+                        <div style={styles.sizeControl}>
+                            <label style={styles.sizeLabel}>
                                 QR Size: {qrSize}×{qrSize}px
                             </label>
                             <input type="range" min={120} max={400} step={20} value={qrSize}
                                 onChange={e => setQrSize(Number(e.target.value))}
-                                style={{ width: '100%', marginTop: 4 }} />
+                                style={styles.sizeSlider} />
                         </div>
 
-                        <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+                        <div style={styles.qrActionGroup}>
                             {/* Download button */}
                             <a href={qrSrc} download={`QR_${qrItem.serialNumber}.png`} target="_blank" rel="noreferrer"
-                                style={{ ...FormStyles.submitButton, textDecoration: 'none', display: 'inline-block' }}>
+                                style={styles.downloadBtn}>
                                 ⬇ Download QR
                             </a>
                             {/* Go scan it */}
                             {qrItem.status === 'Available' && (
                                 <button onClick={() => { setQrItem(null); scanNow(qrItem); }}
-                                    style={{ ...FormStyles.submitButton, background: '#0ea5e9' }}>
+                                    style={styles.scanNowBtn}>
                                     📷 Scan This Now
                                 </button>
                             )}
@@ -269,7 +272,7 @@ const InventoryPage: React.FC = () => {
 
             {/* ── Add / Edit Modal ── */}
             {isModalOpen && (
-                <div style={ModalStyles.overlay}>
+                <div style={styles.overlay}>
                     <div style={ModalStyles.content}>
                         <div style={ModalStyles.titleRow}>
                             <h3 style={ModalStyles.title}>{selectedItem ? 'Edit Item' : 'Add Inventory Item'}</h3>
@@ -277,52 +280,52 @@ const InventoryPage: React.FC = () => {
                         </div>
                         <form onSubmit={handleSubmit}>
                             <div style={FormStyles.grid2}>
-                                <div style={FormStyles.group}>
-                                    <label style={FormStyles.label}>Item Name *</label>
+                                <div style={styles.formGroup}>
+                                    <label style={styles.formLabel}>Item Name *</label>
                                     <input style={FormStyles.input} value={formData.itemName} required
                                         onChange={e => setFormData({ ...formData, itemName: e.target.value })} />
                                 </div>
-                                <div style={FormStyles.group}>
-                                    <label style={FormStyles.label}>Category *</label>
+                                <div style={styles.formGroup}>
+                                    <label style={styles.formLabel}>Category *</label>
                                     <select style={FormStyles.select} value={formData.category}
                                         onChange={e => setFormData({ ...formData, category: e.target.value as InventoryForm['category'] })}>
                                         {CATEGORIES.map(c => <option key={c}>{c}</option>)}
                                     </select>
                                 </div>
-                                <div style={FormStyles.group}>
-                                    <label style={FormStyles.label}>Brand</label>
+                                <div style={styles.formGroup}>
+                                    <label style={styles.formLabel}>Brand</label>
                                     <input style={FormStyles.input} value={formData.brand}
                                         onChange={e => setFormData({ ...formData, brand: e.target.value })} />
                                 </div>
-                                <div style={FormStyles.group}>
-                                    <label style={FormStyles.label}>Model</label>
+                                <div style={styles.formGroup}>
+                                    <label style={styles.formLabel}>Model</label>
                                     <input style={FormStyles.input} value={formData.model}
                                         onChange={e => setFormData({ ...formData, model: e.target.value })} />
                                 </div>
-                                <div style={FormStyles.group}>
-                                    <label style={FormStyles.label}>Serial Number *</label>
+                                <div style={styles.formGroup}>
+                                    <label style={styles.formLabel}>Serial Number *</label>
                                     <input style={FormStyles.input} value={formData.serialNumber} required
                                         onChange={e => setFormData({ ...formData, serialNumber: e.target.value })} />
                                 </div>
-                                <div style={FormStyles.group}>
-                                    <label style={FormStyles.label}>Daily Rental Price (Rs.) *</label>
+                                <div style={styles.formGroup}>
+                                    <label style={styles.formLabel}>Daily Rental Price (Rs.) *</label>
                                     <input type="number" style={FormStyles.input} value={formData.baseRentalPrice === 0 ? '' : formData.baseRentalPrice} required min={0}
                                         onChange={e => setFormData({ ...formData, baseRentalPrice: e.target.value === '' ? 0 : Number(e.target.value) })} />
                                 </div>
-                                <div style={FormStyles.group}>
-                                    <label style={FormStyles.label}>Status</label>
+                                <div style={styles.formGroup}>
+                                    <label style={styles.formLabel}>Status</label>
                                     <select style={FormStyles.select} value={formData.status}
                                         onChange={e => setFormData({ ...formData, status: e.target.value as InventoryForm['status'] })}>
                                         {STATUSES.map(s => <option key={s}>{s}</option>)}
                                     </select>
                                 </div>
-                                <div style={FormStyles.group}>
-                                    <label style={FormStyles.label}>Purchase Date</label>
+                                <div style={styles.formGroup}>
+                                    <label style={styles.formLabel}>Purchase Date</label>
                                     <input type="date" style={FormStyles.input} value={formData.purchaseDate}
                                         onChange={e => setFormData({ ...formData, purchaseDate: e.target.value })} />
                                 </div>
-                                <div style={{ ...FormStyles.group, gridColumn: '1 / -1' }}>
-                                    <label style={FormStyles.label}>Notes</label>
+                                <div style={styles.fullWidthGroup}>
+                                    <label style={styles.formLabel}>Notes</label>
                                     <textarea style={FormStyles.textarea} value={formData.notes}
                                         onChange={e => setFormData({ ...formData, notes: e.target.value })} />
                                 </div>

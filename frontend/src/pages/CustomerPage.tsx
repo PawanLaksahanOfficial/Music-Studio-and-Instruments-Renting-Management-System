@@ -3,7 +3,10 @@ import { StyleContext } from '../context/StyleContext';
 import { customersAPI } from '../services/api';
 import Customer from '../types/Customer';
 import DeleteConfirmation from '../components/DeleteConfirmation';
-import { AdminStyles, CustomersPageStyles, ModalStyles, FormStyles } from '../styles/AllStyles';
+import { AdminPanelStyles } from '../styles/AdminPanelStyles';
+import { CustomerPageStyles } from '../styles/CustomerPageStyles';
+import { ModalStyles, FormStyles } from '../styles/AllStyles';
+import { StatusBadge } from '../styles/DesignTokens';
 
 const emptyForm = {
     firstName: '', lastName: '', email: '', phone: '',
@@ -12,8 +15,8 @@ const emptyForm = {
 
 const CustomersPage: React.FC = () => {
     const { getComponentStyle } = useContext(StyleContext);
-    const layoutStyles = getComponentStyle('adminLayout') as typeof AdminStyles;
-    const styles = getComponentStyle('customers') as typeof CustomersPageStyles;
+    const layoutStyles = getComponentStyle('adminLayout') as typeof AdminPanelStyles;
+    const styles = getComponentStyle('customers') as typeof CustomerPageStyles;
 
     const [customers, setCustomers] = useState<Customer[]>([]);
     const [loading, setLoading] = useState(true);
@@ -78,33 +81,33 @@ const CustomersPage: React.FC = () => {
         `${c.firstName} ${c.lastName} ${c.phone} ${c.nicOrPassport}`.toLowerCase().includes(search.toLowerCase())
     );
 
-    if (loading && customers.length === 0) return <div style={{ padding: '20px', color: '#64748b' }}>Loading customers...</div>;
+    if (loading && customers.length === 0) return <div style={styles.loading}>Loading customers...</div>;
 
     return (
         <div style={styles.container}>
             <div style={styles.header}>
-                <div>
-                    <h2 style={{ margin: 0, fontSize: '22px', fontWeight: 700, color: '#1e293b' }}>Customers</h2>
-                    <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#64748b' }}>{customers.length} registered</p>
+                <div style={styles.titleSection}>
+                    <h2 style={styles.title}>Customers</h2>
+                    <p style={styles.subtitle}>{customers.length} registered</p>
                 </div>
                 <button style={styles.actionButton} onClick={openAdd}>+ Add Customer</button>
             </div>
 
-            <div style={{ marginBottom: '20px' }}>
+            <div style={styles.filterRow}>
                 <input
                     placeholder="Search by name, phone, NIC..."
                     value={search}
                     onChange={e => setSearch(e.target.value)}
-                    style={{ ...FormStyles.input, maxWidth: '320px' }}
+                    style={styles.searchInput}
                 />
             </div>
 
-            <div style={layoutStyles.tableWrap}>
-                <table style={layoutStyles.table}>
+            <div style={styles.tableWrapper}>
+                <table style={styles.table}>
                     <thead>
                         <tr>
                             {['Name', 'Phone', 'Email', 'NIC / Passport', 'Status', 'Joined', 'Actions'].map(h => (
-                                <th key={h} style={layoutStyles.th}>{h}</th>
+                                <th key={h} style={styles.th}>{h}</th>
                             ))}
                         </tr>
                     </thead>
@@ -114,37 +117,37 @@ const CustomersPage: React.FC = () => {
                                 onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#f8fafc')}
                                 onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
                             >
-                                <td style={{ ...layoutStyles.td, fontWeight: 600 }}>{c.firstName} {c.lastName}</td>
-                                <td style={layoutStyles.td}>{c.phone}</td>
-                                <td style={{ ...layoutStyles.td, color: '#64748b' }}>{c.email || '—'}</td>
-                                <td style={{ ...layoutStyles.td, fontFamily: 'monospace', fontSize: '12px' }}>{c.nicOrPassport}</td>
-                                <td style={layoutStyles.td}>
-                                    <span style={c.isBlacklisted ? styles.blacklistBadge : styles.activeBadge}>
+                                <td style={{ ...styles.td, ...styles.tdBold }}>{c.firstName} {c.lastName}</td>
+                                <td style={styles.td}>{c.phone}</td>
+                                <td style={{ ...styles.td, ...styles.tdSmall }}>{c.email || '—'}</td>
+                                <td style={{ ...styles.td, ...styles.tdMonospace }}>{c.nicOrPassport}</td>
+                                <td style={styles.td}>
+                                    <span style={c.isBlacklisted ? StatusBadge.overdue : StatusBadge.active}>
                                         {c.isBlacklisted ? 'Blacklisted' : 'Active'}
                                     </span>
                                 </td>
-                                <td style={{ ...layoutStyles.td, color: '#64748b', fontSize: '12px' }}>
+                                <td style={{ ...styles.td, ...styles.tdSmall }}>
                                     {new Date(c.createdAt).toLocaleDateString()}
                                 </td>
-                                <td style={layoutStyles.td}>
-                                    <div style={{ display: 'flex', gap: '6px' }}>
+                                <td style={styles.td}>
+                                    <div style={styles.actionGroup}>
                                         <button onClick={() => openEdit(c)}
-                                            style={{ border: 'none', background: '#3b82f6', color: '#fff', padding: '5px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}>
+                                            style={styles.editButton}>
                                             Edit
                                         </button>
                                         <button onClick={() => toggleBlacklist(c)}
-                                            style={{ border: 'none', background: c.isBlacklisted ? '#10b981' : '#f59e0b', color: '#fff', padding: '5px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}>
+                                            style={styles.blockButton(c.isBlacklisted)}>
                                             {c.isBlacklisted ? 'Unblock' : 'Block'}
                                         </button>
                                         <button onClick={() => { setToDelete(c); setIsDeleteOpen(true); }}
-                                            style={{ border: 'none', background: '#ef4444', color: '#fff', padding: '5px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}>
+                                            style={styles.deleteButton}>
                                             Delete
                                         </button>
                                     </div>
                                 </td>
                             </tr>
                         )) : (
-                            <tr><td colSpan={7} style={{ textAlign: 'center', padding: '30px', color: '#94a3b8' }}>No customers found.</td></tr>
+                            <tr><td colSpan={7} style={styles.noCustomers}>No customers found.</td></tr>
                         )}
                     </tbody>
                 </table>
@@ -152,7 +155,7 @@ const CustomersPage: React.FC = () => {
 
             {/* Add / Edit Modal */}
             {isModalOpen && (
-                <div style={ModalStyles.overlay}>
+                <div style={styles.modalOverlay}>
                     <div style={ModalStyles.content}>
                         <div style={ModalStyles.titleRow}>
                             <h3 style={ModalStyles.title}>{selected ? 'Edit Customer' : 'New Customer'}</h3>
