@@ -4,13 +4,15 @@ import { StyleContext } from '../context/StyleContext';
 import { inventoryAPI } from '../services/api';
 import Inventory from '../types/Inventory';
 import DeleteConfirmation from '../components/DeleteConfirmation';
+import ArchiveConfirmation from '../components/ArchiveConfirmation';
+import { useAuth } from '../context/AuthContext';
 import { AdminPanelStyles } from '../styles/AdminPanelStyles';
 import { InventoryPageStyles } from '../styles/InventoryPageStyles';
 import { ModalStyles, FormStyles } from '../styles/AllStyles';
 import { StatusBadge } from '../styles/DesignTokens';
 
-const CATEGORIES = ['Instruments', 'Audio Gear', 'Cables', 'Other'] as const;
-const STATUSES   = ['Available', 'Rented', 'Maintenance', 'Damaged', 'Lost'] as const;
+const CATEGORIES = ['Instruments', 'Audio Gear', 'Cables', 'Other'];
+const STATUSES   = ['Available', 'Rented', 'Maintenance', 'Damaged', 'Lost'];
 
 type Category = typeof CATEGORIES[number];
 type Status = typeof STATUSES[number];
@@ -28,8 +30,14 @@ interface InventoryForm {
 }
 
 const emptyForm: InventoryForm = {
-    itemName: '', category: 'Instruments', brand: '', model: '',
-    serialNumber: '', status: 'Available', baseRentalPrice: 0, purchaseDate: '',
+    itemName: '',
+    category: 'Instruments', 
+    brand: '', 
+    model: '',
+    serialNumber: '', 
+    status: 'Available', 
+    baseRentalPrice: 0, 
+    purchaseDate: '',
     notes: '',
 };
 
@@ -41,39 +49,52 @@ const statusStyle = (s: string) => {
     return map[s] || StatusBadge.lost;
 };
 
-// QR payload encodes the qrCodeId PLUS extra item info so scanning
-// shows meaningful context. Backend lookup only uses the qrCodeId part.
 const buildQRPayload = (item: Inventory) =>
     `${item.qrCodeId}|${item.itemName}|${item.serialNumber}|${item.baseRentalPrice}`;
 
 const InventoryPage: React.FC = () => {
     const navigate = useNavigate();
     const { getComponentStyle } = useContext(StyleContext);
-    const layoutStyles = getComponentStyle('adminLayout') as typeof AdminPanelStyles;
     const styles = getComponentStyle('inventory') as typeof InventoryPageStyles;
-
-    const [items, setItems]               = useState<Inventory[]>([]);
-    const [loading, setLoading]           = useState(true);
-    const [search, setSearch]             = useState('');
+    const { isAdmin } = useAuth();
+    const [items, setItems] = useState<Inventory[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [search, setSearch] = useState('');
     const [filterStatus, setFilterStatus] = useState('All');
-    const [isModalOpen, setIsModalOpen]   = useState(false);
+    const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedItem, setSelectedItem] = useState<Inventory | null>(null);
-    const [formData, setFormData]         = useState<InventoryForm>({ ...emptyForm });
+    const [formData, setFormData] = useState<InventoryForm>({ ...emptyForm });
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-    const [toDelete, setToDelete]         = useState<Inventory | null>(null);
-    const [qrItem, setQrItem]             = useState<Inventory | null>(null);
-    const [qrSize, setQrSize]             = useState(220);
+    const [toDelete, setToDelete] = useState<Inventory | null>(null);
+    const [isArchiveOpen, setIsArchiveOpen] = useState(false);
+    const [toArchive, setToArchive] = useState<Inventory | null>(null);
+    const [qrItem, setQrItem] = useState<Inventory | null>(null);
+    const [qrSize, setQrSize] = useState(220);
 
     const fetchItems = async () => {
         setLoading(true);
-        try { const r = await inventoryAPI.getAll(); setItems(r.data); }
-        catch (e) { console.error(e); }
-        finally { setLoading(false); }
+        try { 
+            const r = await inventoryAPI.getAll(); 
+            setItems(r.data); 
+        }
+        catch (e) { 
+            console.error(e); 
+        }
+        finally { 
+            setLoading(false); 
+        }
     };
 
-    useEffect(() => { fetchItems(); }, []);
+    useEffect(() => {
+         fetchItems(); 
+    }, []);
 
-    const openAdd = () => { setSelectedItem(null); setFormData({ ...emptyForm }); setIsModalOpen(true); };
+    const openAdd = () => { 
+        setSelectedItem(null); 
+        setFormData({ ...emptyForm }); 
+        setIsModalOpen(true); 
+    };
+
     const openEdit = (item: Inventory) => {
         setSelectedItem(item);
         setFormData({
@@ -101,8 +122,26 @@ const InventoryPage: React.FC = () => {
 
     const confirmDelete = async () => {
         if (!toDelete) return;
-        try { await inventoryAPI.delete(toDelete._id); fetchItems(); setIsDeleteOpen(false); }
-        catch { alert('Delete failed'); }
+        try { 
+            await inventoryAPI.delete(toDelete._id); 
+            fetchItems(); 
+            setIsDeleteOpen(false); 
+        }
+        catch { 
+            alert('Delete failed'); 
+        }
+    };
+
+    const confirmArchive = async () => {
+        if (!toArchive) return;
+        try { 
+            await inventoryAPI.archive(toArchive._id); 
+            fetchItems(); 
+            setIsArchiveOpen(false); 
+        }
+        catch { 
+            alert('Archive failed'); 
+        }
     };
 
     const filtered = items.filter(i => {
@@ -113,9 +152,11 @@ const InventoryPage: React.FC = () => {
                (filterStatus === 'All' || i.status === filterStatus);
     });
 
-    const openQR = (item: Inventory) => { setQrItem(item); setQrSize(220); };
+    const openQR = (item: Inventory) => { 
+        setQrItem(item); 
+        setQrSize(220); 
+    };
 
-    // Navigate to scanner page with this item pre-highlighted
     const scanNow = (item: Inventory) => {
         navigate('/admin/scanner', { state: { prefillQR: item.qrCodeId } });
     };
@@ -123,11 +164,10 @@ const InventoryPage: React.FC = () => {
     if (loading && items.length === 0) return <div style={styles.loading}>Loading inventory...</div>;
 
     const qrPayload = qrItem ? encodeURIComponent(buildQRPayload(qrItem)) : '';
-    const qrSrc     = qrItem ? `https://api.qrserver.com/v1/create-qr-code/?size=${qrSize}x${qrSize}&margin=1&data=${qrPayload}` : '';
+    const qrSrc = qrItem ? `https://api.qrserver.com/v1/create-qr-code/?size=${qrSize}x${qrSize}&margin=1&data=${qrPayload}` : '';
 
     return (
         <div style={styles.container}>
-            {/* Header */}
             <div style={styles.header}>
                 <div style={styles.titleSection}>
                     <h2 style={styles.title}>Inventory</h2>
@@ -136,7 +176,6 @@ const InventoryPage: React.FC = () => {
                 <button style={styles.actionButton} onClick={openAdd}>+ Add Item</button>
             </div>
 
-            {/* Filters */}
             <div style={styles.filterRow}>
                 <input placeholder="Search name, serial, brand…" value={search}
                     onChange={e => setSearch(e.target.value)}
@@ -148,7 +187,6 @@ const InventoryPage: React.FC = () => {
                 </select>
             </div>
 
-            {/* Table */}
             <div style={styles.tableWrapper}>
                 <table style={styles.table}>
                     <thead>
@@ -174,26 +212,30 @@ const InventoryPage: React.FC = () => {
                                 </td>
                                 <td style={styles.td}>
                                     <div style={styles.actionGroup}>
-                                        {/* QR button */}
                                         <button onClick={() => openQR(item)}
                                             style={styles.qrButton}>
                                             🔲 QR
                                         </button>
-                                        {/* Direct scan shortcut */}
                                         {item.status === 'Available' && (
                                             <button onClick={() => scanNow(item)}
                                                 style={styles.scanButton}>
                                                 📷 Scan
                                             </button>
                                         )}
+                                        <button onClick={() => { setToArchive(item); setIsArchiveOpen(true); }}
+                                            style={styles.archiveButton}>
+                                            Archive
+                                        </button>
                                         <button onClick={() => openEdit(item)}
                                             style={styles.editButton}>
                                             Edit
                                         </button>
-                                        <button onClick={() => { setToDelete(item); setIsDeleteOpen(true); }}
-                                            style={styles.deleteButton}>
-                                            Delete
-                                        </button>
+                                        {isAdmin && (
+                                            <button onClick={() => { setToDelete(item); setIsDeleteOpen(true); }}
+                                                style={styles.deleteButton}>
+                                                Delete
+                                            </button>
+                                        )}
                                     </div>
                                 </td>
                             </tr>
@@ -204,7 +246,7 @@ const InventoryPage: React.FC = () => {
                 </table>
             </div>
 
-            {/* ── QR Modal ── */}
+            {/* QR Modal */}
             {qrItem && (
                 <div style={styles.overlay} onClick={() => setQrItem(null)}>
                     <div style={styles.qrModalContent} onClick={e => e.stopPropagation()}>
@@ -212,16 +254,14 @@ const InventoryPage: React.FC = () => {
                             <h3 style={styles.qrModalTitle}>{qrItem.itemName}</h3>
                             <button style={styles.qrModalCloseBtn} onClick={() => setQrItem(null)}>✕</button>
                         </div>
-
-                        {/* item info */}
                         <div style={styles.itemInfoBox}>
                             {[
-                                ['Category',   qrItem.category],
-                                ['Brand',      qrItem.brand || '—'],
-                                ['Serial #',   qrItem.serialNumber],
+                                ['Category', qrItem.category],
+                                ['Brand', qrItem.brand || '—'],
+                                ['Serial #', qrItem.serialNumber],
                                 ['Daily Rate', `Rs. ${qrItem.baseRentalPrice}`],
                                 ['QR Code ID', qrItem.qrCodeId],
-                                ['Status',     qrItem.status],
+                                ['Status', qrItem.status],
                             ].map(([k, v]) => (
                                 <div key={k} style={styles.infoRow}>
                                     <span style={styles.infoLabel}>{k}</span>
@@ -229,35 +269,25 @@ const InventoryPage: React.FC = () => {
                                 </div>
                             ))}
                         </div>
-
-                        {/* QR image */}
                         <div style={styles.qrImageWrapper}>
                             <img src={qrSrc} alt="QR Code" width={qrSize} height={qrSize}
                                 style={styles.qrImage} />
                         </div>
-
                         <p style={styles.qrDescription}>
                             This QR encodes the item ID, name, serial and daily rate.<br />
                             Scan it in the QR Scanner page to auto-fill an invoice.
                         </p>
-
-                        {/* size slider */}
                         <div style={styles.sizeControl}>
-                            <label style={styles.sizeLabel}>
-                                QR Size: {qrSize}×{qrSize}px
-                            </label>
+                            <label style={styles.sizeLabel}>QR Size: {qrSize}×{qrSize}px</label>
                             <input type="range" min={120} max={400} step={20} value={qrSize}
                                 onChange={e => setQrSize(Number(e.target.value))}
                                 style={styles.sizeSlider} />
                         </div>
-
                         <div style={styles.qrActionGroup}>
-                            {/* Download button */}
                             <a href={qrSrc} download={`QR_${qrItem.serialNumber}.png`} target="_blank" rel="noreferrer"
                                 style={styles.downloadBtn}>
                                 ⬇ Download QR
                             </a>
-                            {/* Go scan it */}
                             {qrItem.status === 'Available' && (
                                 <button onClick={() => { setQrItem(null); scanNow(qrItem); }}
                                     style={styles.scanNowBtn}>
@@ -270,7 +300,6 @@ const InventoryPage: React.FC = () => {
                 </div>
             )}
 
-            {/* ── Add / Edit Modal ── */}
             {isModalOpen && (
                 <div style={styles.overlay}>
                     <div style={ModalStyles.content}>
@@ -339,12 +368,20 @@ const InventoryPage: React.FC = () => {
                 </div>
             )}
 
-            <DeleteConfirmation
-                isOpen={isDeleteOpen}
-                onClose={() => setIsDeleteOpen(false)}
-                onConfirm={confirmDelete}
-                itemName={toDelete?.itemName || 'this item'}
+            <ArchiveConfirmation
+                isOpen={isArchiveOpen}
+                onClose={() => setIsArchiveOpen(false)}
+                onConfirm={confirmArchive}
+                itemName={toArchive?.itemName || 'this item'}
             />
+            {isAdmin && (
+                <DeleteConfirmation
+                    isOpen={isDeleteOpen}
+                    onClose={() => setIsDeleteOpen(false)}
+                    onConfirm={confirmDelete}
+                    itemName={toDelete?.itemName || 'this item'}
+                />
+            )}
         </div>
     );
 };

@@ -4,7 +4,7 @@ import { IStudioRental } from '../interfaces/IStudioRental';
 
 class StudioRentalService {
     async getAllStudioRentals(): Promise<IStudioRental[]> {
-        return await StudioRental.find({ isDeleted: false })
+        return await StudioRental.find({ isDeleted: false, isArchived: false })
             .populate('customer')
             .sort({ startTime: -1 });
     }
@@ -41,7 +41,6 @@ class StudioRentalService {
             throw error;
         }
 
-        // Conflict check
         const conflict = await StudioRental.findOne({
             roomName,
             isDeleted: false,
@@ -104,6 +103,32 @@ class StudioRentalService {
         return rental;
     }
 
+    async archiveStudioRental(id: string): Promise<{ message: string }> {
+        const rental = await StudioRental.findOne({ _id: id, isDeleted: false });
+        if (!rental) {
+            const error: any = new Error('Studio rental not found');
+            error.statusCode = 404;
+            throw error;
+        }
+        rental.isArchived = true;
+        rental.archivedAt = new Date();
+        await rental.save();
+        return { message: 'Studio rental archived' };
+    }
+
+    async restoreStudioRental(id: string): Promise<{ message: string }> {
+        const rental = await StudioRental.findOne({ _id: id, isArchived: true });
+        if (!rental) {
+            const error: any = new Error('Archived studio rental not found');
+            error.statusCode = 404;
+            throw error;
+        }
+        rental.isArchived = false;
+        rental.archivedAt = undefined;
+        await rental.save();
+        return { message: 'Studio rental restored' };
+    }
+
     async deleteStudioRental(id: string): Promise<{ message: string }> {
         const rental = await StudioRental.findOne({ _id: id, isDeleted: false });
         if (!rental) {
@@ -111,9 +136,14 @@ class StudioRentalService {
             error.statusCode = 404;
             throw error;
         }
-        rental.isDeleted = true;
-        await rental.save();
-        return { message: 'Studio rental deleted' };
+        await StudioRental.findByIdAndDelete(id);
+        return { message: 'Studio rental permanently deleted' };
+    }
+
+    async getArchivedStudioRentals(): Promise<IStudioRental[]> {
+        return await StudioRental.find({ isArchived: true })
+            .populate('customer')
+            .sort({ archivedAt: -1 });
     }
 }
 

@@ -25,6 +25,7 @@ export const CustomerPageStyles = {
     // Actions
     actionGroup: { display: 'flex', gap: '6px' },
     editButton: { border: 'none', background: '#3b82f6', color: '#fff', padding: '5px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 600 },
+    archiveButton: { border: 'none', background: '#f59e0b', color: '#fff', padding: '5px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 600 },
     blockButton: (isBlacklisted: boolean) => ({ border: 'none', background: isBlacklisted ? '#10b981' : '#f59e0b', color: '#fff', padding: '5px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }),
     deleteButton: { border: 'none', background: '#ef4444', color: '#fff', padding: '5px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 600 },
     

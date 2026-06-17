@@ -4,19 +4,24 @@ import axios from 'axios';
 import Rental from '@/types/Rental';
 import AddUpdateRental from './AddUpdateRental';
 import DeleteConfirmation from "../components/DeleteConfirmation";
+import ArchiveConfirmation from "../components/ArchiveConfirmation";
+import { useAuth } from '../context/AuthContext';
 import { AdminPanelStyles } from '../styles/AdminPanelStyles';
 import { ProductRentalsStyles } from '../styles/ProductRentalsStyles';
 
 const ProductRentals = () => {
     const { getComponentStyle } = useContext(StyleContext);
     const layoutStyles = getComponentStyle("adminLayout") as typeof AdminPanelStyles;
-    const pageStyles = getComponentStyle("productRentals") as typeof ProductRentalsStyles;   
+    const pageStyles = getComponentStyle("productRentals") as typeof ProductRentalsStyles;
+    const { isAdmin, isCashier } = useAuth();   
     const [rentals, setRentals] = useState<Rental[]>([]);
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedRental, setSelectedRental] = useState<Rental | null>(null);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [rentalToDelete, setRentalToDelete] = useState<Rental | null>(null);
+    const [isArchiveOpen, setIsArchiveOpen] = useState(false);
+    const [toArchive, setToArchive] = useState<Rental | null>(null);
 
     const fetchRentals = async () => {
         setLoading(true);
@@ -58,6 +63,18 @@ const ProductRentals = () => {
         } catch (err) {
             console.error("Failed to delete rental", err);
             alert("Delete failed.");
+        }
+    };
+
+    const confirmArchive = async () => {
+        if (!toArchive) return;
+        try {
+            await axios.patch(`http://localhost:5000/api/rentals/${toArchive._id}/archive`);
+            fetchRentals();
+            setIsArchiveOpen(false);
+        } catch (err) {
+            console.error("Failed to archive rental", err);
+            alert("Archive failed.");
         }
     };
 
@@ -112,18 +129,20 @@ const ProductRentals = () => {
                                     </td>
                                     <td style={pageStyles.td}>
                                         <div style={pageStyles.actionGroup}>
-                                            <button 
-                                                onClick={() => handleEdit(item)}
-                                                style={pageStyles.editButton}
-                                            >
+                                            <button onClick={() => { setToArchive(item); setIsArchiveOpen(true); }}
+                                                style={pageStyles.archiveButton}>
+                                                Archive
+                                            </button>
+                                            <button onClick={() => handleEdit(item)}
+                                                style={pageStyles.editButton}>
                                                 Edit
                                             </button>
-                                            <button 
-                                                onClick={() => openDeleteModal(item)}
-                                                style={pageStyles.deleteButton}
-                                            >
-                                                Delete
-                                            </button>
+                                            {isAdmin && (
+                                                <button onClick={() => openDeleteModal(item)}
+                                                    style={pageStyles.deleteButton}>
+                                                    Delete
+                                                </button>
+                                            )}
                                         </div>
                                     </td>
                                 </tr>
@@ -143,12 +162,20 @@ const ProductRentals = () => {
                 refreshData={fetchRentals}
                 selectedRental={selectedRental}
             />
-            <DeleteConfirmation 
-                isOpen={isDeleteModalOpen}
-                onClose={() => setIsDeleteModalOpen(false)}
-                onConfirm={confirmDelete}
-                itemName={rentalToDelete?.items[0]?.itemId?.itemName || "this record"}
+            <ArchiveConfirmation
+                isOpen={isArchiveOpen}
+                onClose={() => setIsArchiveOpen(false)}
+                onConfirm={confirmArchive}
+                itemName={toArchive?.items[0]?.itemId?.itemName || toArchive?.rentalId || 'this record'}
             />
+            {isAdmin && (
+                <DeleteConfirmation 
+                    isOpen={isDeleteModalOpen}
+                    onClose={() => setIsDeleteModalOpen(false)}
+                    onConfirm={confirmDelete}
+                    itemName={rentalToDelete?.items[0]?.itemId?.itemName || "this record"}
+                />
+            )}
         </div>
     );
 };

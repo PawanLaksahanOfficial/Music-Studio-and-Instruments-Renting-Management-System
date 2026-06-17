@@ -4,29 +4,44 @@ import { studioRentalsAPI, customersAPI } from '../services/api';
 import StudioRental from '../types/StudioRental';
 import Customer from '../types/Customer';
 import DeleteConfirmation from '../components/DeleteConfirmation';
-import { AdminPanelStyles } from '../styles/AdminPanelStyles';
+import ArchiveConfirmation from '../components/ArchiveConfirmation';
+import { useAuth } from '../context/AuthContext';
 import { StudioRentalStyles } from '../styles/StudioRentalStyles';
 import { ModalStyles, FormStyles } from '../styles/AllStyles';
 import { StatusBadge } from '../styles/DesignTokens';
 
 const ROOMS = ['Studio A', 'Studio B', 'Studio C', 'Recording Booth'];
 
-const statusStyle = (s: string): React.CSSProperties => ({
-    Confirmed: StatusBadge.confirmed,
-    Completed: StatusBadge.returned,
-    Cancelled: StatusBadge.cancelled,
-}[s] || StatusBadge.cancelled);
+const statusStyle = (status: string): React.CSSProperties => {
+    if(status === 'Confirmed')
+    {
+        return StatusBadge.confirmed;
+    }
+    else if(status === 'Completed')
+    {
+        return StatusBadge.returned;
+    }
+    else
+    {
+        return StatusBadge.cancelled;
+    }
+};
 
 const emptyForm = {
-    customerId: '', roomName: ROOMS[0], startTime: '', endTime: '',
-    totalAmount: 0, status: 'Confirmed', paymentStatus: 'Pending', notes: '',
+    customerId: '', 
+    roomName: ROOMS[0], 
+    startTime: '', 
+    endTime: '',
+    totalAmount: 0, 
+    status: 'Confirmed', 
+    paymentStatus: 'Pending', 
+    notes: '',
 };
 
 const StudioRentals: React.FC = () => {
     const { getComponentStyle } = useContext(StyleContext);
-    const layoutStyles = getComponentStyle('adminLayout') as typeof AdminPanelStyles;
     const styles = getComponentStyle('studioRentals') as typeof StudioRentalStyles;
-
+    const { isAdmin } = useAuth();
     const [rentals, setRentals] = useState<StudioRental[]>([]);
     const [customers, setCustomers] = useState<Customer[]>([]);
     const [loading, setLoading] = useState(true);
@@ -35,6 +50,8 @@ const StudioRentals: React.FC = () => {
     const [formData, setFormData] = useState({ ...emptyForm });
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [toDelete, setToDelete] = useState<StudioRental | null>(null);
+    const [isArchiveOpen, setIsArchiveOpen] = useState(false);
+    const [toArchive, setToArchive] = useState<StudioRental | null>(null);
     const [filterStatus, setFilterStatus] = useState('All');
 
     const fmt = (dt: string) => dt ? dt.slice(0, 16) : '';
@@ -48,13 +65,21 @@ const StudioRentals: React.FC = () => {
             ]);
             setRentals(rRes.data);
             setCustomers(cRes.data);
-        } catch (e) { console.error(e); }
-        finally { setLoading(false); }
+        } catch (e) { 
+            console.error(e); 
+        }
+        finally { 
+            setLoading(false); 
+        }
     };
 
     useEffect(() => { fetch(); }, []);
 
-    const openAdd = () => { setSelected(null); setFormData({ ...emptyForm }); setIsModalOpen(true); };
+    const openAdd = () => { 
+        setSelected(null); 
+        setFormData({ ...emptyForm }); 
+        setIsModalOpen(true); 
+    };
     const openEdit = (r: StudioRental) => {
         setSelected(r);
         setFormData({
@@ -84,8 +109,26 @@ const StudioRentals: React.FC = () => {
 
     const confirmDelete = async () => {
         if (!toDelete) return;
-        try { await studioRentalsAPI.delete(toDelete._id); fetch(); setIsDeleteOpen(false); }
-        catch { alert('Delete failed'); }
+        try { 
+            await studioRentalsAPI.delete(toDelete._id); 
+            fetch(); 
+            setIsDeleteOpen(false); 
+        }
+        catch { 
+            alert('Delete failed'); 
+        }
+    };
+
+    const confirmArchive = async () => {
+        if (!toArchive) return;
+        try { 
+            await studioRentalsAPI.archive(toArchive._id); 
+            fetch(); 
+            setIsArchiveOpen(false); 
+        }
+        catch { 
+            alert('Archive failed'); 
+        }
     };
 
     const filtered = rentals.filter(r =>
@@ -145,14 +188,20 @@ const StudioRentals: React.FC = () => {
                                 </td>
                                 <td style={styles.td}>
                                     <div style={styles.actionGroup}>
+                                        <button onClick={() => { setToArchive(r); setIsArchiveOpen(true); }}
+                                            style={styles.archiveButton}>
+                                            Archive
+                                        </button>
                                         <button onClick={() => openEdit(r)}
                                             style={styles.editButton}>
                                             Edit
                                         </button>
-                                        <button onClick={() => { setToDelete(r); setIsDeleteOpen(true); }}
-                                            style={styles.deleteButton}>
-                                            Delete
-                                        </button>
+                                        {isAdmin && (
+                                            <button onClick={() => { setToDelete(r); setIsDeleteOpen(true); }}
+                                                style={styles.deleteButton}>
+                                                Delete
+                                            </button>
+                                        )}
                                     </div>
                                 </td>
                             </tr>
@@ -236,12 +285,20 @@ const StudioRentals: React.FC = () => {
                 </div>
             )}
 
-            <DeleteConfirmation
-                isOpen={isDeleteOpen}
-                onClose={() => setIsDeleteOpen(false)}
-                onConfirm={confirmDelete}
-                itemName={toDelete ? `${toDelete.bookingId} — ${toDelete.roomName}` : ''}
+            <ArchiveConfirmation
+                isOpen={isArchiveOpen}
+                onClose={() => setIsArchiveOpen(false)}
+                onConfirm={confirmArchive}
+                itemName={toArchive ? `${toArchive.bookingId} — ${toArchive.roomName}` : ''}
             />
+            {isAdmin && (
+                <DeleteConfirmation
+                    isOpen={isDeleteOpen}
+                    onClose={() => setIsDeleteOpen(false)}
+                    onConfirm={confirmDelete}
+                    itemName={toDelete ? `${toDelete.bookingId} — ${toDelete.roomName}` : ''}
+                />
+            )}
         </div>
     );
 };

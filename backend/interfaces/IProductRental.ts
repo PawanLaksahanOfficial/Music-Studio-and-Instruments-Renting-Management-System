@@ -20,6 +20,8 @@ export interface IProductRental extends Document {
     paymentStatus: PaymentStatus;
     notes?: string;
     isDeleted: boolean;
+    isArchived: boolean;
+    archivedAt?: Date;
     createdAt: Date;
     updatedAt: Date;
 }

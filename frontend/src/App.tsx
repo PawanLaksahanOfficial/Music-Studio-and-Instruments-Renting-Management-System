@@ -13,7 +13,10 @@ import CustomersPage from './pages/CustomerPage';
 import UsersPage from './pages/UsersPage';
 import InvoiceManager from './pages/InvoiceManager';
 import StatsPage from './pages/StatusPage';
-import QRScannerPage from './pages/QRScannerPage'; // ← NEW
+import QRScannerPage from './pages/QRScannerPage';
+import ArchivedRentals from './pages/ArchivedRentals';
+import ArchivedCustomers from './pages/ArchivedCustomers';
+import ArchivedInventory from './pages/ArchivedInventory';
 
 const AppRoutes = () => {
     const routes = useRoutes([
@@ -26,11 +29,11 @@ const AppRoutes = () => {
                 </ProtectedRoute>
             ),
             children: [
-                { index: true,      element: <Navigate to="/admin/products" replace /> },
+                { index: true, element: <Navigate to="/admin/products" replace /> },
                 { path: 'products', element: <ProductRentals /> },
-                { path: 'studio',   element: <StudioRentals /> },
+                { path: 'studio', element: <StudioRentals /> },
                 { path: 'invoices', element: <InvoiceManager /> },
-                { path: 'scanner',  element: <QRScannerPage /> }, // ← NEW (both roles)
+                { path: 'scanner', element: <QRScannerPage /> },
                 {
                     path: 'inventory',
                     element: (
@@ -60,6 +63,30 @@ const AppRoutes = () => {
                     element: (
                         <ProtectedRoute requireAdmin>
                             <StatsPage />
+                        </ProtectedRoute>
+                    ),
+                },
+                {
+                    path: 'archived-rentals',
+                    element: (
+                        <ProtectedRoute requireAdmin>
+                            <ArchivedRentals />
+                        </ProtectedRoute>
+                    ),
+                },
+                {
+                    path: 'archived-customers',
+                    element: (
+                        <ProtectedRoute requireAdmin>
+                            <ArchivedCustomers />
+                        </ProtectedRoute>
+                    ),
+                },
+                {
+                    path: 'archived-inventory',
+                    element: (
+                        <ProtectedRoute requireAdmin>
+                            <ArchivedInventory />
                         </ProtectedRoute>
                     ),
                 },

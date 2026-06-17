@@ -5,7 +5,7 @@ import { IProductRental } from '../interfaces/IProductRental';
 
 class RentalService {
     async getAllRentals(): Promise<IProductRental[]> {
-        return await ProductRental.find({ isDeleted: false })
+        return await ProductRental.find({ isDeleted: false, isArchived: false })
             .populate('customer')
             .populate('items.itemId')
             .sort({ createdAt: -1 });
@@ -25,13 +25,11 @@ class RentalService {
 
     async createNewRental(rentalData: any): Promise<IProductRental | null> {
         const { customerId, items, dueDate, totalAmount, paymentStatus, notes } = rentalData;
-        // Validation
         if (!customerId || !items?.length || !dueDate || totalAmount === undefined) {
             const error: any = new Error('customerId, items, dueDate and totalAmount are required');
             error.statusCode = 400;
             throw error;
         }
-        // Check Customer
         const customer = await Customer.findById(customerId);
         if (!customer) {
             const error: any = new Error('Customer not found');
@@ -43,7 +41,6 @@ class RentalService {
             error.statusCode = 403;
             throw error;
         }
-        // Check Inventory Availability
         const itemIds = items.map((i: any) => i.itemId);
         const inventoryItems = await Inventory.find({ _id: { $in: itemIds } });
         const notAvailable = inventoryItems.filter(i => i.status !== 'Available');       
@@ -52,13 +49,10 @@ class RentalService {
             error.statusCode = 400;
             throw error;
         }
-        //  Create Rental
         const rental = await ProductRental.create({
             customer: customerId, items, dueDate, totalAmount, paymentStatus, notes
         });
-        // Update Inventory status
         await Inventory.updateMany({ _id: { $in: itemIds } }, { $set: { status: 'Rented' } });
-        // Update Customer history
         await Customer.findByIdAndUpdate(customerId, { $push: { rentalHistory: rental._id } });
         return await ProductRental.findById(rental._id)
             .populate('customer')
@@ -88,7 +82,6 @@ class RentalService {
             error.statusCode = 400;
             throw error;
         }
-
         const rental = await ProductRental.findOne({ _id: id, isDeleted: false });
         if (!rental) {
             const error: any = new Error('Rental not found');
@@ -120,6 +113,32 @@ class RentalService {
         return rental;
     }
 
+    async archiveRental(id: string): Promise<{ message: string }> {
+        const rental = await ProductRental.findOne({ _id: id, isDeleted: false });
+        if (!rental) {
+            const error: any = new Error('Rental not found');
+            error.statusCode = 404;
+            throw error;
+        }
+        rental.isArchived = true;
+        rental.archivedAt = new Date();
+        await rental.save();
+        return { message: 'Rental archived' };
+    }
+
+    async restoreRental(id: string): Promise<{ message: string }> {
+        const rental = await ProductRental.findOne({ _id: id, isArchived: true });
+        if (!rental) {
+            const error: any = new Error('Archived rental not found');
+            error.statusCode = 404;
+            throw error;
+        }
+        rental.isArchived = false;
+        rental.archivedAt = undefined;
+        await rental.save();
+        return { message: 'Rental restored' };
+    }
+
     async deleteRental(id: string): Promise<{ message: string }> {
         const rental = await ProductRental.findOne({ _id: id, isDeleted: false });
         if (!rental) {
@@ -127,13 +146,20 @@ class RentalService {
             error.statusCode = 404;
             throw error;
         }
-        rental.isDeleted = true;
-        await rental.save();
+        
+        await ProductRental.findByIdAndDelete(id);
         if (rental.status !== 'Returned') {
             const itemIds = rental.items.map(i => i.itemId);
             await Inventory.updateMany({ _id: { $in: itemIds } }, { $set: { status: 'Available' } });
         }
-        return { message: 'Rental deleted and items returned to inventory' };
+        return { message: 'Rental permanently deleted' };
+    }
+
+    async getArchivedRentals(): Promise<IProductRental[]> {
+        return await ProductRental.find({ isArchived: true })
+            .populate('customer')
+            .populate('items.itemId')
+            .sort({ archivedAt: -1 });
     }
 }
 

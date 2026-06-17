@@ -9,7 +9,9 @@ const CustomerSchema: Schema<ICustomer> = new Schema({
     address: String,
     nicOrPassport: { type: String, unique: true, required: true, trim: true },
     rentalHistory: [{ type: mongoose.Schema.Types.ObjectId, ref: 'ProductRental' }],
-    isBlacklisted: { type: Boolean, default: false }
+    isBlacklisted: { type: Boolean, default: false },
+    isArchived: { type: Boolean, default: false },
+    archivedAt: { type: Date }
 }, { timestamps: true });
 
 const Customer: Model<ICustomer> = mongoose.models.Customer || mongoose.model<ICustomer>('Customer', CustomerSchema);

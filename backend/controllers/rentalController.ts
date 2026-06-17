@@ -11,6 +11,16 @@ export const getAllRentals = async (req: Request, res: Response) => {
     }
 };
 
+// GET /api/rentals/archived
+export const getArchivedRentals = async (req: Request, res: Response) => {
+    try {
+        const rentals = await rentalService.getArchivedRentals();
+        res.json(rentals);
+    } catch (err: any) {
+        res.status(err.statusCode || 500).json({ message: err.message });
+    }
+};
+
 // GET /api/rentals/:id
 export const getRentalById = async (req: Request, res: Response) => {
     try {
@@ -60,6 +70,28 @@ export const updatePaymentStatus = async (req: Request, res: Response) => {
         const { id } = req.params;
         const rental = await rentalService.updatePaymentStatus(id as string, req.body.paymentStatus);
         res.json(rental);
+    } catch (err: any) {
+        res.status(err.statusCode || 400).json({ message: err.message });
+    }
+};
+
+// PATCH /api/rentals/:id/archive
+export const archiveRental = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const result = await rentalService.archiveRental(id as string);
+        res.json(result);
+    } catch (err: any) {
+        res.status(err.statusCode || 400).json({ message: err.message });
+    }
+};
+
+// PATCH /api/rentals/:id/restore
+export const restoreRental = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const result = await rentalService.restoreRental(id as string);
+        res.json(result);
     } catch (err: any) {
         res.status(err.statusCode || 400).json({ message: err.message });
     }

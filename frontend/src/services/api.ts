@@ -26,6 +26,9 @@ export const customersAPI = {
     update: (id: string, data: object) => axios.patch(`${BASE}/customers/${id}`, data),
     delete: (id: string) => axios.delete(`${BASE}/customers/${id}`),
     toggleBlacklist: (id: string) => axios.patch(`${BASE}/customers/${id}/blacklist`),
+    archive: (id: string) => axios.patch(`${BASE}/customers/${id}/archive`),
+    restore: (id: string) => axios.patch(`${BASE}/customers/${id}/restore`),
+    getArchived: () => axios.get(`${BASE}/customers/archived`),
 };
 
 // ── Inventory ─────────────────────────────────────────────────────────────
@@ -35,6 +38,9 @@ export const inventoryAPI = {
     create: (data: object) => axios.post(`${BASE}/inventory`, data),
     update: (id: string, data: object) => axios.patch(`${BASE}/inventory/${id}`, data),
     delete: (id: string) => axios.delete(`${BASE}/inventory/${id}`),
+    archive: (id: string) => axios.patch(`${BASE}/inventory/${id}/archive`),
+    restore: (id: string) => axios.patch(`${BASE}/inventory/${id}/restore`),
+    getArchived: () => axios.get(`${BASE}/inventory/archived`),
 };
 
 // ── Product Rentals ───────────────────────────────────────────────────────
@@ -49,6 +55,9 @@ export const rentalsAPI = {
     updatePayment: (id: string, paymentStatus: string) =>
         axios.patch(`${BASE}/rentals/${id}/payment`, { paymentStatus }),
     delete: (id: string) => axios.delete(`${BASE}/rentals/${id}`),
+    archive: (id: string) => axios.patch(`${BASE}/rentals/${id}/archive`),
+    restore: (id: string) => axios.patch(`${BASE}/rentals/${id}/restore`),
+    getArchived: () => axios.get(`${BASE}/rentals/archived`),
 };
 
 // ── Studio Rentals ────────────────────────────────────────────────────────
@@ -60,6 +69,9 @@ export const studioRentalsAPI = {
     updateStatus: (id: string, status: string) =>
         axios.patch(`${BASE}/studio-rentals/${id}/status`, { status }),
     delete: (id: string) => axios.delete(`${BASE}/studio-rentals/${id}`),
+    archive: (id: string) => axios.patch(`${BASE}/studio-rentals/${id}/archive`),
+    restore: (id: string) => axios.patch(`${BASE}/studio-rentals/${id}/restore`),
+    getArchived: () => axios.get(`${BASE}/studio-rentals/archived`),
 };
 
 // ── Invoices ──────────────────────────────────────────────────────────────

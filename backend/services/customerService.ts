@@ -3,7 +3,7 @@ import { ICustomer } from '../interfaces/ICustomer';
 
 class CustomerService {
     async getAllCustomers(): Promise<ICustomer[]> {
-        return await Customer.find().sort({ createdAt: -1 });
+        return await Customer.find({ isArchived: false }).sort({ createdAt: -1 });
     }
 
     async getCustomerById(id: string): Promise<ICustomer> {
@@ -60,6 +60,32 @@ class CustomerService {
         return { isBlacklisted: customer.isBlacklisted };
     }
 
+    async archiveCustomer(id: string): Promise<{ message: string }> {
+        const customer = await Customer.findById(id);
+        if (!customer) {
+            const error: any = new Error('Customer not found');
+            error.statusCode = 404;
+            throw error;
+        }
+        customer.isArchived = true;
+        customer.archivedAt = new Date();
+        await customer.save();
+        return { message: 'Customer archived' };
+    }
+
+    async restoreCustomer(id: string): Promise<{ message: string }> {
+        const customer = await Customer.findById(id);
+        if (!customer) {
+            const error: any = new Error('Customer not found');
+            error.statusCode = 404;
+            throw error;
+        }
+        customer.isArchived = false;
+        customer.archivedAt = undefined;
+        await customer.save();
+        return { message: 'Customer restored' };
+    }
+
     async deleteCustomer(id: string): Promise<{ message: string }> {
         const customer = await Customer.findByIdAndDelete(id);
         if (!customer) {
@@ -67,7 +93,11 @@ class CustomerService {
             error.statusCode = 404;
             throw error;
         }
-        return { message: 'Customer deleted' };
+        return { message: 'Customer deleted permanently' };
+    }
+
+    async getArchivedCustomers(): Promise<ICustomer[]> {
+        return await Customer.find({ isArchived: true }).sort({ archivedAt: -1 });
     }
 }
 

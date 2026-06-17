@@ -11,6 +11,16 @@ export const getAllInventoryRecords = async (req: Request, res: Response) => {
     }
 };
 
+// GET /api/inventory/archived
+export const getArchivedInventoryRecords = async (req: Request, res: Response) => {
+    try {
+        const items = await inventoryService.getArchivedInventory();
+        res.json(items);
+    } catch (err: any) {
+        res.status(err.statusCode || 500).json({ message: err.message });
+    }
+};
+
 // GET /api/inventory/qr/:qrCodeId
 export const getByQRCode = async (req: Request, res: Response) => {
     try {
@@ -50,6 +60,28 @@ export const updateInventoryItem = async (req: Request, res: Response) => {
         const { id } = req.params;
         const item = await inventoryService.updateInventoryItem(id as string, req.body);
         res.json(item);
+    } catch (err: any) {
+        res.status(err.statusCode || 400).json({ message: err.message });
+    }
+};
+
+// PATCH /api/inventory/:id/archive
+export const archiveInventoryItem = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const result = await inventoryService.archiveInventoryItem(id as string);
+        res.json(result);
+    } catch (err: any) {
+        res.status(err.statusCode || 400).json({ message: err.message });
+    }
+};
+
+// PATCH /api/inventory/:id/restore
+export const restoreInventoryItem = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const result = await inventoryService.restoreInventoryItem(id as string);
+        res.json(result);
     } catch (err: any) {
         res.status(err.statusCode || 400).json({ message: err.message });
     }

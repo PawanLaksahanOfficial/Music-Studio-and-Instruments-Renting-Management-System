@@ -15,6 +15,8 @@ export interface IStudioRental extends Document {
     paymentStatus: StudioPaymentStatus;
     notes?: string;
     isDeleted: boolean;
+    isArchived: boolean;
+    archivedAt?: Date;
     createdAt: Date;
     updatedAt: Date;
 }

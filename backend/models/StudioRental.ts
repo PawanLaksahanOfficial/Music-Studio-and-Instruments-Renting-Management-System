@@ -12,7 +12,9 @@ const StudioRentalSchema: Schema<IStudioRental> = new Schema({
     status: { type: String, enum: ['Confirmed', 'Cancelled', 'Completed'], default: 'Confirmed' },
     paymentStatus: { type: String, enum: ['Paid', 'Pending'], default: 'Pending' },
     notes: String,
-    isDeleted: { type: Boolean, default: false }
+    isDeleted: { type: Boolean, default: false },
+    isArchived: { type: Boolean, default: false },
+    archivedAt: { type: Date }
 }, { timestamps: true });
 
 // Auto-calculate duration before save
