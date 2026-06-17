@@ -5,6 +5,191 @@ import Inventory from '../models/Inventory';
 import Invoice from '../models/Invoice';
 
 class StatsService {
+    async getDashboard(query: any): Promise<any> {
+        const { start, end } = query;
+        let dateFilter: any = {};
+        if (start || end) {
+            dateFilter.updatedAt = {};
+            if (start) dateFilter.updatedAt.$gte = new Date(start as string);
+            if (end) {
+                const endDate = new Date(end as string);
+                endDate.setHours(23, 59, 59, 999);
+                dateFilter.updatedAt.$lte = endDate;
+            }
+        }
+
+        // ── Most Rented Instruments ──
+        const mostRented = await ProductRental.aggregate([
+            { $match: { isDeleted: false, isArchived: false } },
+            { $unwind: '$items' },
+            { $group: { _id: '$items.itemId', rentalCount: { $sum: 1 }, totalRevenue: { $sum: '$totalAmount' } } },
+            { $sort: { rentalCount: -1 } },
+            { $limit: 10 },
+            {
+                $lookup: {
+                    from: 'inventories',
+                    localField: '_id',
+                    foreignField: '_id',
+                    as: 'item'
+                }
+            },
+            { $unwind: { path: '$item', preserveNullAndEmptyArrays: true } },
+            {
+                $project: {
+                    _id: 0,
+                    itemId: '$_id',
+                    itemName: '$item.itemName',
+                    brand: '$item.brand',
+                    serialNumber: '$item.serialNumber',
+                    rentalCount: 1,
+                    totalRevenue: 1,
+                }
+            }
+        ]);
+
+        // ── Late Return Statistics ──
+        const lateReturns = await ProductRental.aggregate([
+            { $match: { status: 'Returned', isDeleted: false, isArchived: false, returnDate: { $ne: null }, dueDate: { $ne: null } } },
+            {
+                $project: {
+                    lateDays: {
+                        $ceil: {
+                            $divide: [
+                                { $subtract: ['$returnDate', '$dueDate'] },
+                                86400000
+                            ]
+                        }
+                    },
+                    lateFee: { $ifNull: ['$lateFee', 0] },
+                    totalAmount: 1,
+                    rentalDate: 1,
+                    dueDate: 1,
+                    returnDate: 1,
+                    customer: 1,
+                }
+            },
+            { $match: { lateDays: { $gt: 0 } } },
+            { $sort: { lateDays: -1 } },
+            { $limit: 20 },
+            {
+                $lookup: {
+                    from: 'customers',
+                    localField: 'customer',
+                    foreignField: '_id',
+                    as: 'customerData'
+                }
+            },
+            { $unwind: { path: '$customerData', preserveNullAndEmptyArrays: true } },
+            {
+                $project: {
+                    customerName: { $concat: ['$customerData.firstName', ' ', '$customerData.lastName'] },
+                    lateDays: 1,
+                    lateFee: 1,
+                    totalAmount: 1,
+                    rentalDate: 1,
+                    dueDate: 1,
+                    returnDate: 1,
+                }
+            }
+        ]);
+
+        const totalLateReturns = lateReturns.length;
+        const totalLateFeeCollected = lateReturns.reduce((sum: number, r: any) => sum + (r.lateFee || 0), 0);
+        const avgLateDays = totalLateReturns > 0
+            ? Math.round(lateReturns.reduce((sum: number, r: any) => sum + (r.lateDays || 0), 0) / totalLateReturns)
+            : 0;
+
+        // ── Top Customers ──
+        const topCustomers = await ProductRental.aggregate([
+            { $match: { isDeleted: false, isArchived: false } },
+            { $group: { _id: '$customer', totalRentals: { $sum: 1 }, totalSpent: { $sum: '$totalAmount' }, totalLateFees: { $sum: { $ifNull: ['$lateFee', 0] } }, totalDamages: { $sum: { $ifNull: ['$damageCharges', 0] } } } },
+            { $sort: { totalSpent: -1 } },
+            { $limit: 10 },
+            {
+                $lookup: {
+                    from: 'customers',
+                    localField: '_id',
+                    foreignField: '_id',
+                    as: 'customerData'
+                }
+            },
+            { $unwind: { path: '$customerData', preserveNullAndEmptyArrays: true } },
+            {
+                $project: {
+                    _id: 0,
+                    customerId: '$_id',
+                    customerName: { $concat: ['$customerData.firstName', ' ', '$customerData.lastName'] },
+                    phone: '$customerData.phone',
+                    totalRentals: 1,
+                    totalSpent: 1,
+                    totalLateFees: 1,
+                    totalDamages: 1,
+                }
+            }
+        ]);
+
+        // ── Maintenance Cost Trends (items marked Damaged) ──
+        const damagedByMonth = await ProductRental.aggregate([
+            { $match: { isDeleted: false, isArchived: false, damageCharges: { $gt: 0 }, returnDate: { $ne: null } } },
+            {
+                $group: {
+                    _id: {
+                        year: { $year: '$returnDate' },
+                        month: { $month: '$returnDate' },
+                    },
+                    totalDamageCharges: { $sum: '$damageCharges' },
+                    count: { $sum: 1 },
+                }
+            },
+            { $sort: { '_id.year': -1, '_id.month': -1 } },
+            { $limit: 12 }
+        ]);
+
+        // ── Rental Growth (monthly new rentals) ──
+        const rentalGrowth = await ProductRental.aggregate([
+            { $match: { isDeleted: false, isArchived: false } },
+            {
+                $group: {
+                    _id: {
+                        year: { $year: '$createdAt' },
+                        month: { $month: '$createdAt' },
+                    },
+                    newRentals: { $sum: 1 },
+                    revenue: { $sum: '$totalAmount' },
+                }
+            },
+            { $sort: { '_id.year': -1, '_id.month': -1 } },
+            { $limit: 12 }
+        ]);
+
+        // Format damaged by month
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const damageTrend = damagedByMonth.map((d: any) => ({
+            month: `${monthNames[d._id.month - 1]} ${d._id.year}`,
+            charges: d.totalDamageCharges,
+            count: d.count,
+        })).reverse();
+
+        const growthTrend = rentalGrowth.map((d: any) => ({
+            month: `${monthNames[d._id.month - 1]} ${d._id.year}`,
+            newRentals: d.newRentals,
+            revenue: d.revenue,
+        })).reverse();
+
+        return {
+            mostRentedInstruments: mostRented,
+            lateReturns: {
+                records: lateReturns.slice(0, 10),
+                totalLateReturns,
+                totalLateFeeCollected,
+                avgLateDays,
+            },
+            topCustomers,
+            damageTrend,
+            rentalGrowth: growthTrend,
+        };
+    }
+
     async getSummary(query: any): Promise<any> {
         const { start, end } = query;
         let dateFilter: any = {};

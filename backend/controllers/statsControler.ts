@@ -20,3 +20,13 @@ export const getMonthly = async (req: Request, res: Response) => {
         res.status(500).json({ message: err.message });
     }
 };
+
+// GET /api/stats/dashboard
+export const getDashboard = async (req: Request, res: Response) => {
+    try {
+        const dashboard = await statsService.getDashboard(req.query);
+        res.json(dashboard);
+    } catch (err: any) {
+        res.status(500).json({ message: err.message });
+    }
+};

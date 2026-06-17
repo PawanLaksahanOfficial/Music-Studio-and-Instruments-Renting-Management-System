@@ -91,6 +91,7 @@ export const invoicesAPI = {
 export const statsAPI = {
     getSummary: (params?: { start?: string; end?: string }) => axios.get(`${BASE}/stats/summary`, { params }),
     getMonthly: (params?: { start?: string; end?: string }) => axios.get(`${BASE}/stats/monthly`, { params }),
+    getDashboard: (params?: { start?: string; end?: string }) => axios.get(`${BASE}/stats/dashboard`, { params }),
 };
 
 // ── Cron ──────────────────────────────────────────────────────────────────

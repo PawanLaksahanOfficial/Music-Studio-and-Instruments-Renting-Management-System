@@ -53,7 +53,7 @@ class InventoryService {
     }
 
     async updateInventoryItem(id: string, updateData: any): Promise<IInventory> {
-        const allowed = ['itemName','category','brand','itemModel','serialNumber','status','baseRentalPrice','purchaseDate','lastMaintenance'];
+        const allowed = ['itemName','category','brand','itemModel','status','baseRentalPrice','purchaseDate','lastMaintenance'];
         const updates: any = {};
         allowed.forEach(f => { if (updateData[f] !== undefined) updates[f] = updateData[f]; });
 

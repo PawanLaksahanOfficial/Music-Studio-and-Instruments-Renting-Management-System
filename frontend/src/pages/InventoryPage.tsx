@@ -333,7 +333,7 @@ const InventoryPage: React.FC = () => {
                                 </div>
                                 <div style={styles.formGroup}>
                                     <label style={styles.formLabel}>Serial Number *</label>
-                                    <input style={FormStyles.input} value={formData.serialNumber} required
+                                    <input style={selectedItem ? { ...FormStyles.input, backgroundColor: '#f1f5f9', cursor: 'not-allowed' } : FormStyles.input} value={formData.serialNumber} required disabled={!!selectedItem}
                                         onChange={e => setFormData({ ...formData, serialNumber: e.target.value })} />
                                 </div>
                                 <div style={styles.formGroup}>
