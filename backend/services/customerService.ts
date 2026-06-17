@@ -1,4 +1,5 @@
 import Customer from '../models/Customer';
+import ProductRental from '../models/ProductRental';
 import { ICustomer } from '../interfaces/ICustomer';
 
 class CustomerService {
@@ -98,6 +99,70 @@ class CustomerService {
 
     async getArchivedCustomers(): Promise<ICustomer[]> {
         return await Customer.find({ isArchived: true }).sort({ archivedAt: -1 });
+    }
+
+    async getCustomerProfile(id: string): Promise<any> {
+        const customer = await Customer.findById(id);
+        if (!customer) {
+            const error: any = new Error('Customer not found');
+            error.statusCode = 404;
+            throw error;
+        }
+        // Get all rentals for this customer
+        const rentals = await ProductRental.find({
+            customer: id,
+            isDeleted: false,
+            isArchived: false,
+        }).populate('items.itemId').sort({ createdAt: -1 });
+        const totalRentals = rentals.length;
+        let totalSpending = 0;
+        let lastRentalDate: string | null = null;
+        let outstandingFines = 0;
+        const rentalHistory: any[] = [];
+        rentals.forEach((r, index) => {
+            totalSpending += r.totalAmount || 0;
+            if (index === 0) {
+                lastRentalDate = r.createdAt?.toISOString() || null;
+            }
+            // outstanding fines = lateFee + damageCharges for unpaid/Pending/Partial
+            if (r.paymentStatus !== 'Paid') {
+                outstandingFines += (r.lateFee || 0) + (r.damageCharges || 0);
+            }
+            rentalHistory.push({
+                _id: r._id,
+                rentalId: r.rentalId,
+                items: r.items,
+                rentalDate: r.rentalDate,
+                dueDate: r.dueDate,
+                returnDate: r.returnDate,
+                status: r.status,
+                totalAmount: r.totalAmount,
+                paymentStatus: r.paymentStatus,
+                lateFee: r.lateFee || 0,
+                damageCharges: r.damageCharges || 0,
+                damageNotes: r.damageNotes || '',
+            });
+        });
+
+        return {
+            customer: {
+                _id: customer._id,
+                firstName: customer.firstName,
+                lastName: customer.lastName,
+                email: customer.email,
+                phone: customer.phone,
+                nicOrPassport: customer.nicOrPassport,
+                isBlacklisted: customer.isBlacklisted,
+                createdAt: customer.createdAt,
+            },
+            stats: {
+                totalRentals,
+                totalSpending,
+                lastRentalDate,
+                outstandingFines,
+            },
+            rentalHistory,
+        };
     }
 }
 

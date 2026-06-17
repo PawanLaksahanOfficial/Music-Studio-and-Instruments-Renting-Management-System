@@ -1,0 +1,26 @@
+import { C, R, S } from './DesignTokens';
+
+export const DamagedInventoryStyles = {
+    container: { maxWidth: 1000, margin: '0 auto', padding: 24 } as React.CSSProperties,
+    pageHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 } as React.CSSProperties,
+    pageTitle: { margin: 0, fontSize: 22, fontWeight: 800, color: C.text } as React.CSSProperties,
+    pageSub: { margin: '5px 0 0', fontSize: 13, color: C.textMuted } as React.CSSProperties,
+    ghostBtn: { background: 'transparent', color: C.textMuted, border: `1.5px solid ${C.border}`, padding: '9px 18px', borderRadius: R.md, cursor: 'pointer', fontSize: 14, fontWeight: 500 } as React.CSSProperties,
+    card: { background: C.card, borderRadius: R.lg, padding: 24, boxShadow: S.md, border: `1px solid ${C.border}` } as React.CSSProperties,
+    tableWrapper: { overflowX: 'auto' as const } as React.CSSProperties,
+    table: { width: '100%', borderCollapse: 'collapse' as const } as React.CSSProperties,
+    th: { background: '#f8fafc', padding: '9px 12px', textAlign: 'left' as const, fontSize: 11, fontWeight: 600, color: '#64748b', textTransform: 'uppercase' as const, letterSpacing: '.4px', border: `1px solid ${C.border}` } as React.CSSProperties,
+    td: { padding: '10px 12px', border: `1px solid ${C.border}`, fontSize: 13, color: '#1e293b' } as React.CSSProperties,
+    tdBold: { fontWeight: 600 } as React.CSSProperties,
+    loading: { textAlign: 'center' as const, padding: 60, fontSize: 15, color: C.textMuted } as React.CSSProperties,
+    noData: { textAlign: 'center' as const, padding: 40, color: '#94a3b8', fontSize: 13 } as React.CSSProperties,
+    statusBadge: { background: '#fee2e2', color: '#991b1b', padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600, display: 'inline-block' } as React.CSSProperties,
+    actionBtn: { background: '#2563eb', color: '#fff', border: 'none', padding: '5px 12px', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600, marginRight: 6 } as React.CSSProperties,
+    actionBtnOrange: { background: '#d97706', color: '#fff', border: 'none', padding: '5px 12px', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600, marginRight: 6 } as React.CSSProperties,
+    statsRow: { display: 'flex', gap: 16, marginBottom: 20, flexWrap: 'wrap' as const } as React.CSSProperties,
+    statBox: { background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10, padding: '14px 20px', flex: 1, minWidth: 150 } as React.CSSProperties,
+    statBoxGreen: { background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: '14px 20px', flex: 1, minWidth: 150 } as React.CSSProperties,
+    statNumber: { fontSize: 20, fontWeight: 800, color: '#dc2626' } as React.CSSProperties,
+    statNumberGreen: { fontSize: 20, fontWeight: 800, color: '#16a34a' } as React.CSSProperties,
+    statLabel: { fontSize: 11, fontWeight: 600, color: '#64748b', textTransform: 'uppercase' as const, letterSpacing: '.3px', marginTop: 3 } as React.CSSProperties,
+};

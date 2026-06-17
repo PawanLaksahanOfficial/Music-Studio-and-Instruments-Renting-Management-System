@@ -1,4 +1,5 @@
 import React, { useContext, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { StyleContext } from '../context/StyleContext';
 import { customersAPI } from '../services/api';
 import Customer from '../types/Customer';
@@ -20,6 +21,7 @@ const emptyForm = {
 };
 
 const CustomersPage: React.FC = () => {
+    const navigate = useNavigate();
     const { getComponentStyle } = useContext(StyleContext);
     const styles = getComponentStyle('customers') as typeof CustomerPageStyles;
     const { isAdmin } = useAuth();
@@ -171,6 +173,10 @@ const CustomersPage: React.FC = () => {
                                 </td>
                                 <td style={styles.td}>
                                     <div style={styles.actionGroup}>
+                                        <button onClick={() => navigate(`/admin/customers/${c._id}/profile`)}
+                                            style={styles.editButton}>
+                                            Profile
+                                        </button>
                                         <button onClick={() => { setToArchive(c); setIsArchiveOpen(true); }}
                                             style={styles.archiveButton}>
                                             Archive

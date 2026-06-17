@@ -96,3 +96,14 @@ export const deleteCustomer = async (req: Request, res: Response) => {
         res.status(err.statusCode || 400).json({ message: err.message });
     }
 };
+
+// GET /api/customers/:id/profile
+export const getCustomerProfile = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const profile = await customerService.getCustomerProfile(id as string);
+        res.json(profile);
+    } catch (err: any) {
+        res.status(err.statusCode || 500).json({ message: err.message });
+    }
+};

@@ -113,6 +113,10 @@ class InventoryService {
     async getArchivedInventory(): Promise<IInventory[]> {
         return await Inventory.find({ isArchived: true }).sort({ archivedAt: -1 });
     }
+
+    async getDamagedInventory(): Promise<IInventory[]> {
+        return await Inventory.find({ status: 'Damaged', isArchived: false }).sort({ updatedAt: -1 });
+    }
 }
 
 export default new InventoryService();

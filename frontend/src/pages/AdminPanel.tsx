@@ -14,6 +14,7 @@ const menuItems = [
     { id: 'returns', label: 'QR Return', path: '/admin/returns', icon: '⬅️' },
     { id: 'scanner', label: 'QR Scanner', path: '/admin/scanner', icon: '📷' },
     { id: 'inventory', label: 'Inventory', path: '/admin/inventory', icon: '📦', adminOnly: true },
+    { id: 'damaged', label: 'Damaged Inventory', path: '/admin/damaged-inventory', icon: '🔧', adminOnly: true },
     { id: 'customers', label: 'Customers', path: '/admin/customers', icon: '👥', adminOnly: true },
     { id: 'users', label: 'Users', path: '/admin/users', icon: '🔑', adminOnly: true },
     { id: 'stats', label: 'Statistics', path: '/admin/stats', icon: '📊', adminOnly: true },

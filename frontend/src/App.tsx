@@ -15,6 +15,8 @@ import InvoiceManager from './pages/InvoiceManager';
 import StatsPage from './pages/StatusPage';
 import QRScannerPage from './pages/QRScannerPage';
 import QRReturnPage from './pages/QRReturnPage';
+import CustomerProfile from './pages/CustomerProfile';
+import DamagedInventory from './pages/DamagedInventory';
 import ArchivedRentals from './pages/ArchivedRentals';
 import ArchivedCustomers from './pages/ArchivedCustomers';
 import ArchivedInventory from './pages/ArchivedInventory';
@@ -49,6 +51,22 @@ const AppRoutes = () => {
                     element: (
                         <ProtectedRoute requireAdmin>
                             <CustomersPage />
+                        </ProtectedRoute>
+                    ),
+                },
+                {
+                    path: 'customers/:id/profile',
+                    element: (
+                        <ProtectedRoute requireAdmin>
+                            <CustomerProfile />
+                        </ProtectedRoute>
+                    ),
+                },
+                {
+                    path: 'damaged-inventory',
+                    element: (
+                        <ProtectedRoute requireAdmin>
+                            <DamagedInventory />
                         </ProtectedRoute>
                     ),
                 },

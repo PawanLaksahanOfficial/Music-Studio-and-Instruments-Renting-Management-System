@@ -97,3 +97,13 @@ export const deleteInventoryItem = async (req: Request, res: Response) => {
         res.status(err.statusCode || 400).json({ message: err.message });
     }
 };
+
+// GET /api/inventory/damaged
+export const getDamagedInventoryRecords = async (req: Request, res: Response) => {
+    try {
+        const items = await inventoryService.getDamagedInventory();
+        res.json(items);
+    } catch (err: any) {
+        res.status(err.statusCode || 500).json({ message: err.message });
+    }
+};
