@@ -11,6 +11,7 @@ const menuItems = [
     { id: 'products', label: 'Product Rentals', path: '/admin/products', icon: '🎸' },
     { id: 'studio', label: 'Studio Rentals', path: '/admin/studio', icon: '🎙️' },
     { id: 'invoices', label: 'Invoices', path: '/admin/invoices', icon: '🧾' },
+    { id: 'returns', label: 'QR Return', path: '/admin/returns', icon: '⬅️' },
     { id: 'scanner', label: 'QR Scanner', path: '/admin/scanner', icon: '📷' },
     { id: 'inventory', label: 'Inventory', path: '/admin/inventory', icon: '📦', adminOnly: true },
     { id: 'customers', label: 'Customers', path: '/admin/customers', icon: '👥', adminOnly: true },

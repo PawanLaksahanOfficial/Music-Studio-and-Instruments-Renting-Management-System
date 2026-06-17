@@ -18,6 +18,9 @@ export interface IProductRental extends Document {
     status: ProductRentalStatus;
     totalAmount: number;
     paymentStatus: PaymentStatus;
+    lateFee: number;
+    damageCharges: number;
+    damageNotes: string;
     notes?: string;
     isDeleted: boolean;
     isArchived: boolean;

@@ -107,3 +107,24 @@ export const deleteRental = async (req: Request, res: Response) => {
         res.status(err.statusCode || 400).json({ message: err.message });
     }
 };
+
+// GET /api/rentals/by-qr/:qrCodeId
+export const getRentalByQR = async (req: Request, res: Response) => {
+    try {
+        const { qrCodeId } = req.params;
+        const rental = await rentalService.getRentalByQR(qrCodeId as string);
+        res.json(rental);
+    } catch (err: any) {
+        res.status(err.statusCode || 500).json({ message: err.message });
+    }
+};
+
+// POST /api/rentals/process-return
+export const processReturn = async (req: Request, res: Response) => {
+    try {
+        const result = await rentalService.processReturn(req.body);
+        res.json(result);
+    } catch (err: any) {
+        res.status(err.statusCode || 400).json({ message: err.message });
+    }
+};

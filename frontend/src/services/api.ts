@@ -58,6 +58,8 @@ export const rentalsAPI = {
     archive: (id: string) => axios.patch(`${BASE}/rentals/${id}/archive`),
     restore: (id: string) => axios.patch(`${BASE}/rentals/${id}/restore`),
     getArchived: () => axios.get(`${BASE}/rentals/archived`),
+    getByQR: (qrCodeId: string) => axios.get(`${BASE}/rentals/by-qr/${qrCodeId}`),
+    processReturn: (data: object) => axios.post(`${BASE}/rentals/process-return`, data),
 };
 
 // ── Studio Rentals ────────────────────────────────────────────────────────

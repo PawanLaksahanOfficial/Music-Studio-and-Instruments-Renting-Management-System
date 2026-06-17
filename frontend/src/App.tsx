@@ -14,6 +14,7 @@ import UsersPage from './pages/UsersPage';
 import InvoiceManager from './pages/InvoiceManager';
 import StatsPage from './pages/StatusPage';
 import QRScannerPage from './pages/QRScannerPage';
+import QRReturnPage from './pages/QRReturnPage';
 import ArchivedRentals from './pages/ArchivedRentals';
 import ArchivedCustomers from './pages/ArchivedCustomers';
 import ArchivedInventory from './pages/ArchivedInventory';
@@ -34,6 +35,7 @@ const AppRoutes = () => {
                 { path: 'studio', element: <StudioRentals /> },
                 { path: 'invoices', element: <InvoiceManager /> },
                 { path: 'scanner', element: <QRScannerPage /> },
+                { path: 'returns', element: <QRReturnPage /> },
                 {
                     path: 'inventory',
                     element: (

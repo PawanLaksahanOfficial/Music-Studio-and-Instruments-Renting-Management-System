@@ -3,6 +3,11 @@ import Inventory from '../models/Inventory';
 import Customer from '../models/Customer';
 import { IProductRental } from '../interfaces/IProductRental';
 
+// calculate days between two dates
+const daysBetween = (d1: Date, d2: Date): number => {
+    return Math.max(0, Math.ceil((d2.getTime() - d1.getTime()) / 86400000));
+};
+
 class RentalService {
     async getAllRentals(): Promise<IProductRental[]> {
         return await ProductRental.find({ isDeleted: false, isArchived: false })
@@ -160,6 +165,81 @@ class RentalService {
             .populate('customer')
             .populate('items.itemId')
             .sort({ archivedAt: -1 });
+    }
+
+    async getRentalByQR(qrCodeId: string): Promise<any> {
+        const inventory = await Inventory.findOne({ qrCodeId, isArchived: false });
+        if (!inventory) {
+            const error: any = new Error('No inventory item found with this QR code');
+            error.statusCode = 404;
+            throw error;
+        }
+        const rental = await ProductRental.findOne({
+            'items.itemId': inventory._id,
+            status: { $in: ['Rented', 'Overdue'] },
+            isDeleted: false,
+            isArchived: false,
+        })
+            .populate('customer')
+            .populate('items.itemId')
+            .sort({ createdAt: -1 });
+        if (!rental) {
+            const error: any = new Error('No active rental found for this instrument');
+            error.statusCode = 404;
+            throw error;
+        }
+        return rental;
+    }
+
+    async processReturn(data: {
+        rentalId: string;
+        returnDate: string;
+        lateFee: number;
+        damageCharges: number;
+        damageNotes: string;
+        paymentStatus: string;
+        paymentMethod: string;
+    }): Promise<any> {
+        const { rentalId, returnDate, lateFee, damageCharges, damageNotes, paymentStatus, paymentMethod } = data;
+
+        const rental = await ProductRental.findOne({ _id: rentalId, isDeleted: false })
+            .populate('customer')
+            .populate('items.itemId');
+        if (!rental) {
+            const error: any = new Error('Rental not found');
+            error.statusCode = 404;
+            throw error;
+        }
+        if (rental.status === 'Returned') {
+            const error: any = new Error('This rental has already been returned');
+            error.statusCode = 400;
+            throw error;
+        }
+        const returnDt = new Date(returnDate);
+        const dueDt = new Date(rental.dueDate);
+        const totalAmount = rental.totalAmount + Number(lateFee) + Number(damageCharges);
+        // Update rental
+        rental.status = 'Returned';
+        rental.returnDate = returnDt;
+        rental.lateFee = Number(lateFee) || 0;
+        rental.damageCharges = Number(damageCharges) || 0;
+        rental.damageNotes = damageNotes || '';
+        rental.totalAmount = totalAmount;
+        rental.paymentStatus = paymentStatus as any;
+        await rental.save();
+        // Update inventory
+        const itemIds = rental.items.map(i => i.itemId);
+        await Inventory.updateMany({ _id: { $in: itemIds } }, { $set: { status: 'Available' } });
+        // Update inventory damage status if there are damage charges
+        if (Number(damageCharges) > 0) {
+            await Inventory.updateMany(
+                { _id: { $in: itemIds } },
+                { $set: { status: 'Damaged' } }
+            );
+        }
+        return await ProductRental.findById(rental._id)
+            .populate('customer')
+            .populate('items.itemId');
     }
 }
 
