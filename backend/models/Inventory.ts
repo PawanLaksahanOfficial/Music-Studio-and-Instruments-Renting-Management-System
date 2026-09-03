@@ -12,7 +12,9 @@ const InventorySchema: Schema<IInventory> = new Schema({
     baseRentalPrice:{ type: Number, required: true, min: 0 },
     purchaseDate: Date,
     lastMaintenance: Date,
-    specifications: { type: Map, of: String }
+    specifications: { type: Map, of: String },
+    isArchived: { type: Boolean, default: false },
+    archivedAt: { type: Date }
 }, { timestamps: true });
 
 const Inventory: Model<IInventory> = mongoose.models.Inventory || mongoose.model<IInventory>('Inventory', InventorySchema);

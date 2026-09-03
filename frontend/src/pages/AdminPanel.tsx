@@ -8,19 +8,27 @@ import Footer from '../components/AdminFooter';
 import { cronAPI } from '../services/api';
 
 const menuItems = [
-    { id: 'products',  label: 'Product Rentals', path: '/admin/products',  icon: '🎸' },
-    { id: 'studio',    label: 'Studio Rentals',  path: '/admin/studio',    icon: '🎙️' },
-    { id: 'invoices',  label: 'Invoices',        path: '/admin/invoices',  icon: '🧾' },
-    { id: 'scanner',   label: 'QR Scanner',      path: '/admin/scanner',   icon: '📷' }, // both roles
-    { id: 'inventory', label: 'Inventory',       path: '/admin/inventory', icon: '📦', adminOnly: true },
-    { id: 'customers', label: 'Customers',       path: '/admin/customers', icon: '👥', adminOnly: true },
-    { id: 'users',     label: 'Users',           path: '/admin/users',     icon: '🔑', adminOnly: true },
-    { id: 'stats',     label: 'Statistics',      path: '/admin/stats',     icon: '📊', adminOnly: true },
+    { id: 'products', label: 'Product Rentals', path: '/admin/products', icon: '🎸' },
+    { id: 'studio', label: 'Studio Rentals', path: '/admin/studio', icon: '🎙️' },
+    { id: 'invoices', label: 'Invoices', path: '/admin/invoices', icon: '🧾' },
+    { id: 'returns', label: 'QR Return', path: '/admin/returns', icon: '⬅️' },
+    { id: 'scanner', label: 'QR Scanner', path: '/admin/scanner', icon: '📷' },
+    { id: 'inventory', label: 'Inventory', path: '/admin/inventory', icon: '📦', adminOnly: true },
+    { id: 'damaged', label: 'Damaged Inventory', path: '/admin/damaged-inventory', icon: '🔧', adminOnly: true },
+    { id: 'customers', label: 'Customers', path: '/admin/customers', icon: '👥', adminOnly: true },
+    { id: 'users', label: 'Users', path: '/admin/users', icon: '🔑', adminOnly: true },
+    { id: 'stats', label: 'Statistics', path: '/admin/stats', icon: '📊', adminOnly: true },
+];
+
+const archivedItems = [
+    { id: 'archived-rentals', label: 'Archived Rentals', path: '/admin/archived-rentals', icon: '📋' },
+    { id: 'archived-customers', label: 'Archived Customers', path: '/admin/archived-customers', icon: '👥' },
+    { id: 'archived-inventory', label: 'Archived Inventory', path: '/admin/archived-inventory', icon: '📦' },
 ];
 
 const AdminPanel = () => {
     const { getComponentStyle } = useContext(StyleContext);
-    const styles   = getComponentStyle('adminLayout') as typeof AdminPanelStyles;
+    const styles = getComponentStyle('adminLayout') as typeof AdminPanelStyles;
     const navigate = useNavigate();
     const location = useLocation();
     const { user, logout, isAdmin } = useAuth();
@@ -28,7 +36,10 @@ const AdminPanel = () => {
 
     const visibleItems = menuItems.filter(item => !item.adminOnly || isAdmin);
 
-    const handleLogout = () => { logout(); navigate('/login'); };
+    const handleLogout = () => { 
+        logout(); 
+        navigate('/login'); 
+    };
 
     const handleTriggerReminders = async () => {
         if (!window.confirm('Are you sure you want to trigger due date reminders manually?')) return;
@@ -76,6 +87,28 @@ const AdminPanel = () => {
                         );
                     })}
                 </nav>
+
+                {/* Archived Section - Only visible to Admin */}
+                {isAdmin && (
+                    <>
+                        <div style={{ ...styles.navSection, marginTop: '16px' }}>Archived Records</div>
+                        <nav style={styles.navContainer}>
+                            {archivedItems.map(item => {
+                                const isActive = location.pathname === item.path;
+                                return (
+                                    <div
+                                        key={item.id}
+                                        onClick={() => navigate(item.path)}
+                                        style={isActive ? styles.navItemActive : styles.navItem}
+                                    >
+                                        <span>{item.icon}</span>
+                                        {item.label}
+                                    </div>
+                                );
+                            })}
+                        </nav>
+                    </>
+                )}
 
                 <div style={styles.sidebarUserBox}>
                     <div style={styles.userName}>{user?.name}</div>

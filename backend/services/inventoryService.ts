@@ -4,11 +4,10 @@ import { IInventory } from '../interfaces/IInventory';
 
 class InventoryService {
     async getAllInventory(): Promise<IInventory[]> {
-        return await Inventory.find().sort({ createdAt: -1 });
+        return await Inventory.find({ isArchived: false }).sort({ createdAt: -1 });
     }
 
     async getInventoryByQRCode(qrCodeId: string): Promise<IInventory> {
-        // parsing the QR code if necessary
         const parsedId = qrCodeId.split('|')[0].trim();
         const item = await Inventory.findOne({ qrCodeId: parsedId });
         if (!item) {
@@ -54,7 +53,7 @@ class InventoryService {
     }
 
     async updateInventoryItem(id: string, updateData: any): Promise<IInventory> {
-        const allowed = ['itemName','category','brand','itemModel','serialNumber','status','baseRentalPrice','purchaseDate','lastMaintenance'];
+        const allowed = ['itemName','category','brand','itemModel','status','baseRentalPrice','purchaseDate','lastMaintenance'];
         const updates: any = {};
         allowed.forEach(f => { if (updateData[f] !== undefined) updates[f] = updateData[f]; });
 
@@ -65,6 +64,32 @@ class InventoryService {
             throw error;
         }
         return item;
+    }
+
+    async archiveInventoryItem(id: string): Promise<{ message: string }> {
+        const item = await Inventory.findById(id);
+        if (!item) {
+            const error: any = new Error('Item not found');
+            error.statusCode = 404;
+            throw error;
+        }
+        item.isArchived = true;
+        item.archivedAt = new Date();
+        await item.save();
+        return { message: 'Item archived' };
+    }
+
+    async restoreInventoryItem(id: string): Promise<{ message: string }> {
+        const item = await Inventory.findById(id);
+        if (!item) {
+            const error: any = new Error('Item not found');
+            error.statusCode = 404;
+            throw error;
+        }
+        item.isArchived = false;
+        item.archivedAt = undefined;
+        await item.save();
+        return { message: 'Item restored' };
     }
 
     async deleteInventoryItem(id: string): Promise<{ message: string }> {
@@ -82,7 +107,15 @@ class InventoryService {
         }
 
         await item.deleteOne();
-        return { message: 'Item deleted' };
+        return { message: 'Item deleted permanently' };
+    }
+
+    async getArchivedInventory(): Promise<IInventory[]> {
+        return await Inventory.find({ isArchived: true }).sort({ archivedAt: -1 });
+    }
+
+    async getDamagedInventory(): Promise<IInventory[]> {
+        return await Inventory.find({ status: 'Damaged', isArchived: false }).sort({ updatedAt: -1 });
     }
 }
 

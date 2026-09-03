@@ -11,6 +11,16 @@ export const getAllInventoryRecords = async (req: Request, res: Response) => {
     }
 };
 
+// GET /api/inventory/archived
+export const getArchivedInventoryRecords = async (req: Request, res: Response) => {
+    try {
+        const items = await inventoryService.getArchivedInventory();
+        res.json(items);
+    } catch (err: any) {
+        res.status(err.statusCode || 500).json({ message: err.message });
+    }
+};
+
 // GET /api/inventory/qr/:qrCodeId
 export const getByQRCode = async (req: Request, res: Response) => {
     try {
@@ -55,6 +65,28 @@ export const updateInventoryItem = async (req: Request, res: Response) => {
     }
 };
 
+// PATCH /api/inventory/:id/archive
+export const archiveInventoryItem = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const result = await inventoryService.archiveInventoryItem(id as string);
+        res.json(result);
+    } catch (err: any) {
+        res.status(err.statusCode || 400).json({ message: err.message });
+    }
+};
+
+// PATCH /api/inventory/:id/restore
+export const restoreInventoryItem = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const result = await inventoryService.restoreInventoryItem(id as string);
+        res.json(result);
+    } catch (err: any) {
+        res.status(err.statusCode || 400).json({ message: err.message });
+    }
+};
+
 // DELETE /api/inventory/:id
 export const deleteInventoryItem = async (req: Request, res: Response) => {
     try {
@@ -63,5 +95,15 @@ export const deleteInventoryItem = async (req: Request, res: Response) => {
         res.json(result);
     } catch (err: any) {
         res.status(err.statusCode || 400).json({ message: err.message });
+    }
+};
+
+// GET /api/inventory/damaged
+export const getDamagedInventoryRecords = async (req: Request, res: Response) => {
+    try {
+        const items = await inventoryService.getDamagedInventory();
+        res.json(items);
+    } catch (err: any) {
+        res.status(err.statusCode || 500).json({ message: err.message });
     }
 };

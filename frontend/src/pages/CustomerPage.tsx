@@ -1,23 +1,30 @@
 import React, { useContext, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { StyleContext } from '../context/StyleContext';
 import { customersAPI } from '../services/api';
 import Customer from '../types/Customer';
 import DeleteConfirmation from '../components/DeleteConfirmation';
+import ArchiveConfirmation from '../components/ArchiveConfirmation';
+import { useAuth } from '../context/AuthContext';
 import { AdminPanelStyles } from '../styles/AdminPanelStyles';
 import { CustomerPageStyles } from '../styles/CustomerPageStyles';
 import { ModalStyles, FormStyles } from '../styles/AllStyles';
 import { StatusBadge } from '../styles/DesignTokens';
 
 const emptyForm = {
-    firstName: '', lastName: '', email: '', phone: '',
-    address: '', nicOrPassport: '',
+    firstName: '', 
+    lastName: '',
+    email: '', 
+    phone: '',
+    address: '', 
+    nicOrPassport: '',
 };
 
 const CustomersPage: React.FC = () => {
+    const navigate = useNavigate();
     const { getComponentStyle } = useContext(StyleContext);
-    const layoutStyles = getComponentStyle('adminLayout') as typeof AdminPanelStyles;
     const styles = getComponentStyle('customers') as typeof CustomerPageStyles;
-
+    const { isAdmin } = useAuth();
     const [customers, setCustomers] = useState<Customer[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
@@ -26,24 +33,39 @@ const CustomersPage: React.FC = () => {
     const [formData, setFormData] = useState({ ...emptyForm });
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [toDelete, setToDelete] = useState<Customer | null>(null);
+    const [isArchiveOpen, setIsArchiveOpen] = useState(false);
+    const [toArchive, setToArchive] = useState<Customer | null>(null);
 
     const fetch = async () => {
         setLoading(true);
         try {
             const res = await customersAPI.getAll();
             setCustomers(res.data);
-        } catch (e) { console.error(e); }
-        finally { setLoading(false); }
+        } 
+        catch (e) { 
+            console.error(e); 
+        }
+        finally { 
+            setLoading(false); 
+        }
     };
 
     useEffect(() => { fetch(); }, []);
 
-    const openAdd = () => { setSelected(null); setFormData({ ...emptyForm }); setIsModalOpen(true); };
+    const openAdd = () => { 
+        setSelected(null); 
+        setFormData({ ...emptyForm }); 
+        setIsModalOpen(true); 
+    };
     const openEdit = (c: Customer) => {
         setSelected(c);
         setFormData({
-            firstName: c.firstName, lastName: c.lastName, email: c.email || '',
-            phone: c.phone, address: c.address || '', nicOrPassport: c.nicOrPassport,
+            firstName: c.firstName, 
+            lastName: c.lastName, 
+            email: c.email || '',
+            phone: c.phone, 
+            address: c.address || '', 
+            nicOrPassport: c.nicOrPassport,
         });
         setIsModalOpen(true);
     };
@@ -68,13 +90,33 @@ const CustomersPage: React.FC = () => {
         try {
             await customersAPI.toggleBlacklist(c._id);
             fetch();
-        } catch { alert('Failed to update status'); }
+        } catch { 
+            alert('Failed to update status'); 
+        }
     };
 
     const confirmDelete = async () => {
         if (!toDelete) return;
-        try { await customersAPI.delete(toDelete._id); fetch(); setIsDeleteOpen(false); }
-        catch { alert('Delete failed'); }
+        try { 
+            await customersAPI.delete(toDelete._id); 
+            fetch(); 
+            setIsDeleteOpen(false); 
+        }
+        catch { 
+            alert('Delete failed'); 
+        }
+    };
+
+    const confirmArchive = async () => {
+        if (!toArchive) return;
+        try { 
+            await customersAPI.archive(toArchive._id); 
+            fetch(); 
+            setIsArchiveOpen(false); 
+        }
+        catch { 
+            alert('Archive failed'); 
+        }
     };
 
     const filtered = customers.filter(c =>
@@ -131,6 +173,14 @@ const CustomersPage: React.FC = () => {
                                 </td>
                                 <td style={styles.td}>
                                     <div style={styles.actionGroup}>
+                                        <button onClick={() => navigate(`/admin/customers/${c._id}/profile`)}
+                                            style={styles.editButton}>
+                                            Profile
+                                        </button>
+                                        <button onClick={() => { setToArchive(c); setIsArchiveOpen(true); }}
+                                            style={styles.archiveButton}>
+                                            Archive
+                                        </button>
                                         <button onClick={() => openEdit(c)}
                                             style={styles.editButton}>
                                             Edit
@@ -139,10 +189,12 @@ const CustomersPage: React.FC = () => {
                                             style={styles.blockButton(c.isBlacklisted)}>
                                             {c.isBlacklisted ? 'Unblock' : 'Block'}
                                         </button>
-                                        <button onClick={() => { setToDelete(c); setIsDeleteOpen(true); }}
-                                            style={styles.deleteButton}>
-                                            Delete
-                                        </button>
+                                        {isAdmin && (
+                                            <button onClick={() => { setToDelete(c); setIsDeleteOpen(true); }}
+                                                style={styles.deleteButton}>
+                                                Delete
+                                            </button>
+                                        )}
                                     </div>
                                 </td>
                             </tr>
@@ -203,12 +255,20 @@ const CustomersPage: React.FC = () => {
                 </div>
             )}
 
-            <DeleteConfirmation
-                isOpen={isDeleteOpen}
-                onClose={() => setIsDeleteOpen(false)}
-                onConfirm={confirmDelete}
-                itemName={toDelete ? `${toDelete.firstName} ${toDelete.lastName}` : ''}
+            <ArchiveConfirmation
+                isOpen={isArchiveOpen}
+                onClose={() => setIsArchiveOpen(false)}
+                onConfirm={confirmArchive}
+                itemName={toArchive ? `${toArchive.firstName} ${toArchive.lastName}` : ''}
             />
+            {isAdmin && (
+                <DeleteConfirmation
+                    isOpen={isDeleteOpen}
+                    onClose={() => setIsDeleteOpen(false)}
+                    onConfirm={confirmDelete}
+                    itemName={toDelete ? `${toDelete.firstName} ${toDelete.lastName}` : ''}
+                />
+            )}
         </div>
     );
 };

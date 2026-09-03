@@ -17,6 +17,7 @@ export const ProductRentalsStyles = {
     // Actions
     actionGroup: { display: 'flex', gap: '8px' },
     editButton: { border: 'none', background: '#3498db', color: 'white', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer' },
+    archiveButton: { border: 'none', background: '#f59e0b', color: '#fff', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer' },
     deleteButton: { border: 'none', background: '#e74c3c', color: 'white', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer' },
     
     statusRented: StatusBadge.rented,

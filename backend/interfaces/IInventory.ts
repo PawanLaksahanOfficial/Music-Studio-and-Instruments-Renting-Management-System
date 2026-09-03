@@ -15,6 +15,8 @@ export interface IInventory extends Document {
     purchaseDate?: Date;
     lastMaintenance?: Date;
     specifications?: Map<string, string>;
+    isArchived: boolean;
+    archivedAt?: Date;
     createdAt: Date;
     updatedAt: Date;
 }

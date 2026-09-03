@@ -27,6 +27,7 @@ export const InventoryPageStyles = {
     qrButton: { border: 'none', background: '#6366f1', color: '#fff', padding: '5px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600 },
     scanButton: { border: 'none', background: '#0ea5e9', color: '#fff', padding: '5px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600 },
     editButton: { border: 'none', background: '#3b82f6', color: '#fff', padding: '5px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600 },
+    archiveButton: { border: 'none', background: '#f59e0b', color: '#fff', padding: '5px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600 },
     deleteButton: { border: 'none', background: '#ef4444', color: '#fff', padding: '5px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600 },
     noItems: { textAlign: 'center' as const, padding: 30, color: '#94a3b8' },
     

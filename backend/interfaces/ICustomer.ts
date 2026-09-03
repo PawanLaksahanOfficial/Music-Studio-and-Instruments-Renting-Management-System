@@ -9,6 +9,8 @@ export interface ICustomer extends Document {
     nicOrPassport: string;
     rentalHistory: Types.ObjectId[];
     isBlacklisted: boolean;
+    isArchived: boolean;
+    archivedAt?: Date;
     createdAt: Date;
     updatedAt: Date;
 }

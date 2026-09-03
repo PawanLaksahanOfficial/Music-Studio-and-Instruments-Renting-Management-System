@@ -11,6 +11,16 @@ export const getAllCustomers = async (req: Request, res: Response) => {
     }
 };
 
+// GET /api/customers/archived
+export const getArchivedCustomers = async (req: Request, res: Response) => {
+    try {
+        const customers = await customerService.getArchivedCustomers();
+        res.json(customers);
+    } catch (err: any) {
+        res.status(err.statusCode || 500).json({ message: err.message });
+    }
+};
+
 // GET /api/customers/:id
 export const getCustomerById = async (req: Request, res: Response) => {
     try {
@@ -54,6 +64,28 @@ export const toggleBlacklist = async (req: Request, res: Response) => {
     }
 };
 
+// PATCH /api/customers/:id/archive
+export const archiveCustomer = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const result = await customerService.archiveCustomer(id as string);
+        res.json(result);
+    } catch (err: any) {
+        res.status(err.statusCode || 400).json({ message: err.message });
+    }
+};
+
+// PATCH /api/customers/:id/restore
+export const restoreCustomer = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const result = await customerService.restoreCustomer(id as string);
+        res.json(result);
+    } catch (err: any) {
+        res.status(err.statusCode || 400).json({ message: err.message });
+    }
+};
+
 // DELETE /api/customers/:id
 export const deleteCustomer = async (req: Request, res: Response) => {
     try {
@@ -62,5 +94,16 @@ export const deleteCustomer = async (req: Request, res: Response) => {
         res.json(result);
     } catch (err: any) {
         res.status(err.statusCode || 400).json({ message: err.message });
+    }
+};
+
+// GET /api/customers/:id/profile
+export const getCustomerProfile = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const profile = await customerService.getCustomerProfile(id as string);
+        res.json(profile);
+    } catch (err: any) {
+        res.status(err.statusCode || 500).json({ message: err.message });
     }
 };
