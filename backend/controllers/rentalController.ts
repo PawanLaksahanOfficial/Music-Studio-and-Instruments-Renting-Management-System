@@ -1,130 +1,76 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import rentalService from '../services/rentalService';
+import { asyncHandler } from '../utils/asyncHandler';
 
 // GET /api/rentals
-export const getAllRentals = async (req: Request, res: Response) => {
-    try {
-        const rentals = await rentalService.getAllRentals();
-        res.json(rentals);
-    } catch (err: any) {
-        res.status(err.statusCode || 500).json({ message: err.message });
-    }
-};
+export const getAllRentals = asyncHandler(async (req, res: Response) => {
+    const { page, limit, search, status } = req.query as unknown as {
+        page: number;
+        limit: number;
+        search?: string;
+        status?: string;
+    };
+    res.json(await rentalService.getAllRentals({ page, limit, search, status }));
+});
 
 // GET /api/rentals/archived
-export const getArchivedRentals = async (req: Request, res: Response) => {
-    try {
-        const rentals = await rentalService.getArchivedRentals();
-        res.json(rentals);
-    } catch (err: any) {
-        res.status(err.statusCode || 500).json({ message: err.message });
-    }
-};
+export const getArchivedRentals = asyncHandler(async (req, res: Response) => {
+    const { page, limit } = req.query as unknown as { page: number; limit: number };
+    res.json(await rentalService.getArchivedRentals({ page, limit }));
+});
 
 // GET /api/rentals/:id
-export const getRentalById = async (req: Request, res: Response) => {
-    try {
-        const { id } = req.params;
-        const rental = await rentalService.getRentalById(id as string);
-        res.json(rental);
-    } catch (err: any) {
-        res.status(err.statusCode || 500).json({ message: err.message });
-    }
-};
+export const getRentalById = asyncHandler(async (req, res: Response) => {
+    res.json(await rentalService.getRentalById(req.params.id));
+});
 
 // POST /api/rentals
-export const createNewRental = async (req: Request, res: Response) => {
-    try {
-        const rental = await rentalService.createNewRental(req.body);
-        res.status(201).json(rental);
-    } catch (err: any) {
-        res.status(err.statusCode || 400).json({ message: err.message });
-    }
-};
+export const createNewRental = asyncHandler(async (req, res: Response) => {
+    res.status(201).json(await rentalService.createNewRental(req.body));
+});
+
+// POST /api/rentals/quote — priced preview, persists nothing
+export const quoteRental = asyncHandler(async (req, res: Response) => {
+    const { items, rentalDate, dueDate } = req.body;
+    res.json(await rentalService.quoteRental(items, rentalDate ?? new Date(), dueDate));
+});
 
 // PATCH /api/rentals/:id/status
-export const updateRentalStatus = async (req: Request, res: Response) => {
-    try {
-        const { id } = req.params;
-        const rental = await rentalService.updateRentalStatus(id as string, req.body.status);
-        res.json(rental);
-    } catch (err: any) {
-        res.status(err.statusCode || 400).json({ message: err.message });
-    }
-};
+export const updateRentalStatus = asyncHandler(async (req, res: Response) => {
+    res.json(await rentalService.updateRentalStatus(req.params.id, req.body.status));
+});
 
 // PATCH /api/rentals/:id/extend
-export const extendDueDate = async (req: Request, res: Response) => {
-    try {
-        const { id } = req.params;
-        const rental = await rentalService.extendDueDate(id as string, req.body.newDueDate);
-        res.json(rental);
-    } catch (err: any) {
-        res.status(err.statusCode || 400).json({ message: err.message });
-    }
-};
+export const extendDueDate = asyncHandler(async (req, res: Response) => {
+    res.json(await rentalService.extendDueDate(req.params.id, req.body.newDueDate));
+});
 
 // PATCH /api/rentals/:id/payment
-export const updatePaymentStatus = async (req: Request, res: Response) => {
-    try {
-        const { id } = req.params;
-        const rental = await rentalService.updatePaymentStatus(id as string, req.body.paymentStatus);
-        res.json(rental);
-    } catch (err: any) {
-        res.status(err.statusCode || 400).json({ message: err.message });
-    }
-};
+export const updatePaymentStatus = asyncHandler(async (req, res: Response) => {
+    res.json(await rentalService.updatePaymentStatus(req.params.id, req.body.paymentStatus));
+});
 
 // PATCH /api/rentals/:id/archive
-export const archiveRental = async (req: Request, res: Response) => {
-    try {
-        const { id } = req.params;
-        const result = await rentalService.archiveRental(id as string);
-        res.json(result);
-    } catch (err: any) {
-        res.status(err.statusCode || 400).json({ message: err.message });
-    }
-};
+export const archiveRental = asyncHandler(async (req, res: Response) => {
+    res.json(await rentalService.archiveRental(req.params.id));
+});
 
 // PATCH /api/rentals/:id/restore
-export const restoreRental = async (req: Request, res: Response) => {
-    try {
-        const { id } = req.params;
-        const result = await rentalService.restoreRental(id as string);
-        res.json(result);
-    } catch (err: any) {
-        res.status(err.statusCode || 400).json({ message: err.message });
-    }
-};
+export const restoreRental = asyncHandler(async (req, res: Response) => {
+    res.json(await rentalService.restoreRental(req.params.id));
+});
 
 // DELETE /api/rentals/:id
-export const deleteRental = async (req: Request, res: Response) => {
-    try {
-        const { id } = req.params;
-        const result = await rentalService.deleteRental(id as string);
-        res.json(result);
-    } catch (err: any) {
-        res.status(err.statusCode || 400).json({ message: err.message });
-    }
-};
+export const deleteRental = asyncHandler(async (req, res: Response) => {
+    res.json(await rentalService.deleteRental(req.params.id));
+});
 
 // GET /api/rentals/by-qr/:qrCodeId
-export const getRentalByQR = async (req: Request, res: Response) => {
-    try {
-        const { qrCodeId } = req.params;
-        const rental = await rentalService.getRentalByQR(qrCodeId as string);
-        res.json(rental);
-    } catch (err: any) {
-        res.status(err.statusCode || 500).json({ message: err.message });
-    }
-};
+export const getRentalByQR = asyncHandler(async (req, res: Response) => {
+    res.json(await rentalService.getRentalByQR(req.params.qrCodeId));
+});
 
 // POST /api/rentals/process-return
-export const processReturn = async (req: Request, res: Response) => {
-    try {
-        const result = await rentalService.processReturn(req.body);
-        res.json(result);
-    } catch (err: any) {
-        res.status(err.statusCode || 400).json({ message: err.message });
-    }
-};
+export const processReturn = asyncHandler(async (req, res: Response) => {
+    res.json(await rentalService.processReturn(req.body));
+});

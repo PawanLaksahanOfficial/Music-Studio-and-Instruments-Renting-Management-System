@@ -1,149 +1,148 @@
-import { useEffect, useRef, useState } from 'react';
-import { Html5Qrcode } from 'html5-qrcode';
-import { QRScannerComponentStyles as styles } from '../styles/QRScannerComponentStyles';
+import { useEffect, useId, useRef, useState } from 'react';
+import { Html5Qrcode, type CameraDevice } from 'html5-qrcode';
 
-interface Props {
-    onScanSuccess: (decodedText: string) => void;
-    onClose: () => void;
+interface QRScannerProps {
+    onScan: (decoded: string) => void;
+    onError?: (message: string) => void;
 }
 
-const SCANNER_ID = 'elvi-qr-scanner-region';
-
-const QRScanner: React.FC<Props> = ({ onScanSuccess, onClose }) => {
+/**
+ * Camera QR reader with a manual-entry fallback.
+ *
+ * The fallback matters: cameras get denied, unavailable, or simply refuse to
+ * focus on a scuffed sticker, and a clerk still has to complete the job.
+ */
+const QRScanner = ({ onScan, onError }: QRScannerProps) => {
+    const regionId = useId().replace(/:/g, '');
     const scannerRef = useRef<Html5Qrcode | null>(null);
-    const [error, setError]       = useState('');
-    const [started, setStarted]   = useState(false);
-    const [cameras, setCameras]   = useState<{ id: string; label: string }[]>([]);
-    const [selectedCam, setSelectedCam] = useState('');
-    const hasStarted = useRef(false);
+    const [scanning, setScanning] = useState(false);
+    const [cameras, setCameras] = useState<CameraDevice[]>([]);
+    const [cameraId, setCameraId] = useState<string>('');
+    const [error, setError] = useState<string | null>(null);
+    const [manual, setManual] = useState('');
 
-    // Load available cameras on mount
     useEffect(() => {
         Html5Qrcode.getCameras()
             .then(devices => {
-                if (devices.length === 0) {
-                    setError('No cameras found on this device.');
-                    return;
-                }
                 setCameras(devices);
-                // Prefer back/environment camera if available
-                const backCam = devices.find(d =>
-                    d.label.toLowerCase().includes('back') ||
-                    d.label.toLowerCase().includes('environment')
-                );
-                setSelectedCam((backCam || devices[0]).id);
+                // Prefer a rear camera — on a phone that is the one pointed at the label.
+                const rear = devices.find(d => /back|rear|environment/i.test(d.label));
+                setCameraId(rear?.id ?? devices[0]?.id ?? '');
             })
-            .catch(() => setError('Camera permission denied. Please allow camera access.'));
-    }, []);
-
-    // Start scanner when a camera is selected
-    useEffect(() => {
-        if (!selectedCam || hasStarted.current) return;
-
-        const scanner = new Html5Qrcode(SCANNER_ID, { verbose: false });
-        scannerRef.current = scanner;
-        hasStarted.current = true;
-
-        scanner.start(
-            selectedCam,
-            {
-                fps: 12,
-                qrbox: { width: 250, height: 250 },
-                aspectRatio: 1.0,
-            },
-            (decodedText) => {
-                scanner.stop().catch(() => {});
-                onScanSuccess(decodedText);
-            },
-            () => {}
-        )
-        .then(() => setStarted(true))
-        .catch(err => {
-            hasStarted.current = false;
-            setError(`Could not start camera: ${err}`);
-        });
+            .catch(() => setError('No camera available. Enter the code manually below.'));
 
         return () => {
-            if (scanner.isScanning) {
-                scanner.stop().catch(() => {});
+            // Release the camera when the component goes away, or the light
+            // stays on and the device stays locked to this page.
+            const scanner = scannerRef.current;
+            if (scanner?.isScanning) {
+                scanner.stop().then(() => scanner.clear()).catch(() => undefined);
             }
         };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedCam]);
+    }, []);
 
-    const handleSwitchCamera = async (newId: string) => {
-        const scanner = scannerRef.current;
-        if (scanner?.isScanning) {
-            await scanner.stop().catch(() => {});
+    const start = async () => {
+        if (!cameraId) {
+            setError('No camera selected.');
+            return;
         }
-        hasStarted.current = false;
-        setStarted(false);
-        setSelectedCam(newId);
+        setError(null);
+        try {
+            const scanner = new Html5Qrcode(regionId);
+            scannerRef.current = scanner;
+            await scanner.start(
+                cameraId,
+                { fps: 10, qrbox: { width: 250, height: 250 } },
+                decoded => {
+                    void stop();
+                    onScan(decoded);
+                },
+                () => {
+                    // Per-frame decode misses are normal; only surface real failures.
+                }
+            );
+            setScanning(true);
+        } catch (err) {
+            const message =
+                err instanceof Error ? err.message : 'Could not start the camera. Check browser permissions.';
+            setError(message);
+            onError?.(message);
+        }
+    };
+
+    const stop = async () => {
+        const scanner = scannerRef.current;
+        if (!scanner?.isScanning) return;
+        try {
+            await scanner.stop();
+            await scanner.clear();
+        } catch {
+            // Already stopped — nothing to clean up.
+        }
+        setScanning(false);
+    };
+
+    const submitManual = (e: React.FormEvent) => {
+        e.preventDefault();
+        const code = manual.trim();
+        if (!code) return;
+        onScan(code);
+        setManual('');
     };
 
     return (
-        <div style={styles.overlay}>
-            <div style={styles.modal}>
-                {/* Header */}
-                <div style={styles.titleRow}>
-                    <div>
-                        <div style={styles.title}>📷 QR / Barcode Scanner</div>
-                        <div style={styles.subtitle}>Point camera at a QR code or barcode</div>
-                    </div>
-                    <button onClick={onClose} style={styles.closeBtn}>✕</button>
+        <div className="stack">
+            {error && (
+                <div className="alert alert--warning" role="alert">
+                    {error}
                 </div>
+            )}
 
-                {/* Camera selector */}
+            <div id={regionId} className="qr-reader" style={{ minHeight: scanning ? 260 : 0 }} />
+
+            <div className="row row--wrap">
                 {cameras.length > 1 && (
-                    <div style={styles.controls}>
-                        <select
-                            value={selectedCam}
-                            onChange={e => handleSwitchCamera(e.target.value)}
-                            style={styles.select}
-                        >
-                            {cameras.map(c => (
-                                <option key={c.id} value={c.id}>{c.label || `Camera ${c.id}`}</option>
-                            ))}
-                        </select>
-                    </div>
+                    <select
+                        className="select"
+                        value={cameraId}
+                        onChange={e => setCameraId(e.target.value)}
+                        disabled={scanning}
+                        aria-label="Camera"
+                        style={{ width: 'auto' }}
+                    >
+                        {cameras.map(c => (
+                            <option key={c.id} value={c.id}>
+                                {c.label || 'Camera'}
+                            </option>
+                        ))}
+                    </select>
                 )}
-
-                {/* Scanner viewport */}
-                <div style={styles.viewportWrap}>
-                    <div id={SCANNER_ID} style={styles.scannerDiv} />
-                    {!started && !error && (
-                        <div style={styles.loadingOverlay}>
-                            <div style={styles.spinner} />
-                            <div style={styles.loadingText}>
-                                Starting camera...
-                            </div>
-                        </div>
-                    )}
-                    {/* Scan frame overlay */}
-                    {started && (
-                        <div style={styles.scanFrame}>
-                            <div style={styles.topLeft} />
-                            <div style={styles.topRight} />
-                            <div style={styles.bottomLeft} />
-                            <div style={styles.bottomRight} />
-                        </div>
-                    )}
-                </div>
-
-                {error && (
-                    <div style={styles.errorBox}>
-                        ⚠️ {error}
-                    </div>
+                {scanning ? (
+                    <button type="button" className="btn" onClick={() => void stop()}>
+                        Stop camera
+                    </button>
+                ) : (
+                    <button type="button" className="btn btn--primary" onClick={() => void start()} disabled={!cameraId}>
+                        📷 Start camera
+                    </button>
                 )}
-
-                <div style={styles.hint}>
-                    {started
-                        ? '🟢 Scanner active — align QR code or barcode within the frame'
-                        : '⏳ Initialising camera...'}
-                </div>
-
-                <button onClick={onClose} style={styles.cancelBtn}>Cancel</button>
             </div>
+
+            <form onSubmit={submitManual} className="row row--wrap">
+                <label className="sr-only" htmlFor={`${regionId}-manual`}>
+                    Enter QR code manually
+                </label>
+                <input
+                    id={`${regionId}-manual`}
+                    className="input grow"
+                    placeholder="Or type the code, e.g. ELVI-A1B2C3"
+                    value={manual}
+                    onChange={e => setManual(e.target.value)}
+                />
+                <button type="submit" className="btn" disabled={!manual.trim()}>
+                    Look up
+                </button>
+            </form>
         </div>
     );
 };

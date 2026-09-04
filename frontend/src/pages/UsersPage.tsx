@@ -1,252 +1,440 @@
-import React, { useContext, useEffect, useState } from 'react';
-import { StyleContext } from '../context/StyleContext';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import toast from 'react-hot-toast';
 import { usersAPI } from '../services/api';
-import User from '../types/User';
-import DeleteConfirmation from '../components/DeleteConfirmation';
-import { AdminPanelStyles } from '../styles/AdminPanelStyles';
-import { UsersPageStyles } from '../styles/UsersPageStyles';
-import { ModalStyles, FormStyles } from '../styles/AllStyles';
-import { StatusBadge } from '../styles/DesignTokens';
+import { ApiError, errorMessage } from '../services/httpClient';
 import { useAuth } from '../context/AuthContext';
+import Modal from '../components/Modal';
+import ConfirmDialog from '../components/ConfirmDialog';
+import { PasswordStrength } from '../components/PasswordStrength';
+import { validatePassword } from '../utils/passwordPolicy';
+import { EmptyState, ErrorState, Field, PageHeader, StatusBadge, TableSkeleton } from '../components/ui';
+import { formatDateTime } from '../utils/format';
+import type { Role, User } from '../types/api';
 
-const emptyForm = { name: '', username: '', password: '', email: '', role: 'Cashier' as 'Admin' | 'Cashier' };
+interface CreateForm {
+    name: string;
+    username: string;
+    password: string;
+    role: Role;
+    email: string;
+}
 
-const UsersPage: React.FC = () => {
-    const { getComponentStyle } = useContext(StyleContext);
-    const layoutStyles = getComponentStyle('adminLayout') as typeof AdminPanelStyles;
-    const styles = getComponentStyle('users') as typeof UsersPageStyles;
+const EMPTY: CreateForm = { name: '', username: '', password: '', role: 'Cashier', email: '' };
+
+const UsersPage = () => {
     const { user: currentUser } = useAuth();
     const [users, setUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [selected, setSelected] = useState<User | null>(null);
-    const [formData, setFormData] = useState({ ...emptyForm });
-    const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    const [createOpen, setCreateOpen] = useState(false);
+    const [createForm, setCreateForm] = useState<CreateForm>(EMPTY);
+    const [editing, setEditing] = useState<User | null>(null);
+    const [editForm, setEditForm] = useState({ name: '', role: 'Cashier' as Role, email: '' });
+    const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+    const [saving, setSaving] = useState(false);
     const [toDelete, setToDelete] = useState<User | null>(null);
-    const [showPassword, setShowPassword] = useState(false);
+    const [toToggle, setToToggle] = useState<User | null>(null);
 
-    const fetch = async () => {
+    const load = useCallback(() => {
         setLoading(true);
-        try { const res = await usersAPI.getAll(); setUsers(res.data); }
-        catch (e) { console.error(e); }
-        finally { setLoading(false); }
-    };
+        setError(null);
+        usersAPI
+            .getAll()
+            .then(setUsers)
+            .catch(err => setError(errorMessage(err)))
+            .finally(() => setLoading(false));
+    }, []);
 
-    useEffect(() => { fetch(); }, []);
+    useEffect(load, [load]);
 
-    const openAdd = () => { setSelected(null); setFormData({ ...emptyForm }); setIsModalOpen(true); };
-    const openEdit = (u: User) => {
-        setSelected(u);
-        setFormData({ name: u.name, username: u.username, password: '', email: u.email || '', role: u.role });
-        setIsModalOpen(true);
-    };
+    const passwordError = createForm.password ? validatePassword(createForm.password) : null;
 
-    const handleShare = async () => {
-        if (!selected) return;
-        if (!selected.email && !formData.email) {
-            alert('Please provide an email address first.');
-            return;
-        }
-        try {
-            await usersAPI.shareCredentials({ userId: selected._id, password: formData.password || undefined });
-            alert('Credentials shared successfully!');
-        } catch {
-            alert('Failed to share credentials');
-        }
-    };
-
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleCreate = async (e: FormEvent) => {
         e.preventDefault();
+        if (passwordError) return;
+        setSaving(true);
+        setFieldErrors({});
         try {
-            const payload = selected
-                ? { name: formData.name, role: formData.role, email: formData.email, ...(formData.password ? { password: formData.password } : {}) }
-                : formData;
-            let res;
-            if (selected) {
-                res = await usersAPI.update(selected._id, payload);
-            } else {
-                res = await usersAPI.create(formData);
-            }
-
-            // After creation/update, offer to share credentials if email is present
-            if (formData.email && (selected || res.data._id)) {
-                const userId = selected ? selected._id : res.data._id;
-                if (window.confirm('User saved. Do you want to share credentials via email now?')) {
-                    await usersAPI.shareCredentials({ userId, password: formData.password || undefined });
-                    alert('Credentials shared successfully!');
-                }
-            }
-
-            fetch();
-            setIsModalOpen(false);
+            await usersAPI.create({
+                name: createForm.name,
+                username: createForm.username,
+                password: createForm.password,
+                role: createForm.role,
+                email: createForm.email || undefined,
+            });
+            toast.success('User created. They will be asked to set their own password at first sign-in.');
+            setCreateOpen(false);
+            setCreateForm(EMPTY);
+            load();
         } catch (err) {
-            const e = err as { response?: { data?: { message?: string } } };
-            alert(e.response?.data?.message || 'Action failed');
+            if (err instanceof ApiError && err.details?.length) {
+                setFieldErrors(err.fieldErrors);
+            } else {
+                toast.error(errorMessage(err));
+            }
+        } finally {
+            setSaving(false);
         }
     };
 
-    const toggleActive = async (u: User) => {
-        if (u._id === currentUser?._id) { alert("You can't deactivate your own account."); return; }
-        try { await usersAPI.toggleActive(u._id); fetch(); }
-        catch { alert('Failed'); }
+    const handleEdit = async (e: FormEvent) => {
+        e.preventDefault();
+        setSaving(true);
+        setFieldErrors({});
+        try {
+            await usersAPI.update(editing!._id, {
+                name: editForm.name,
+                role: editForm.role,
+                email: editForm.email || undefined,
+            });
+            toast.success('User updated');
+            setEditing(null);
+            load();
+        } catch (err) {
+            if (err instanceof ApiError && err.details?.length) {
+                setFieldErrors(err.fieldErrors);
+            } else {
+                toast.error(errorMessage(err));
+            }
+        } finally {
+            setSaving(false);
+        }
     };
 
-    const confirmDelete = async () => {
-        if (!toDelete) return;
-        if (toDelete._id === currentUser?._id) { alert("You can't delete your own account."); return; }
-        try { await usersAPI.delete(toDelete._id); fetch(); setIsDeleteOpen(false); }
-        catch { alert('Delete failed'); }
+    const sendSetupLink = async (user: User) => {
+        try {
+            const result = await usersAPI.sendSetupLink(user._id);
+            toast.success(result.message);
+        } catch (err) {
+            toast.error(errorMessage(err));
+        }
     };
 
-    if (loading && users.length === 0) return <div style={styles.loading}>Loading users...</div>;
+    const runAction = async (fn: () => Promise<unknown>, message: string, done: () => void) => {
+        try {
+            await fn();
+            toast.success(message);
+            load();
+        } catch (err) {
+            toast.error(errorMessage(err));
+        } finally {
+            done();
+        }
+    };
 
     return (
-        <div style={styles.container}>
-            <div style={styles.header}>
-                <div style={styles.titleSection}>
-                    <h2 style={styles.title}>Staff Users</h2>
-                    <p style={styles.subtitle}>Manage admin and cashier accounts</p>
+        <>
+            <PageHeader
+                title="Users"
+                subtitle={`${users.length} staff accounts`}
+                actions={
+                    <button type="button" className="btn btn--primary" onClick={() => setCreateOpen(true)}>
+                        + Add user
+                    </button>
+                }
+            />
+
+            <div className="alert alert--info mb-4">
+                <span aria-hidden="true">ℹ</span>
+                <div>
+                    Passwords are never emailed or shown to administrators. Use <strong>Send setup link</strong> to
+                    email a single-use link the user follows to set their own password.
                 </div>
-                <button style={styles.actionButton} onClick={() => openAdd()}>+ New User</button>
             </div>
 
-            <div style={styles.tableWrapper}>
-                <table style={styles.table}>
-                    <thead>
-                        <tr>
-                            {['Name', 'Username', 'Role', 'Status', 'Last Login', 'Actions'].map(h => (
-                                <th key={h} style={styles.th}>{h}</th>
-                            ))}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {users.map(u => (
-                            <tr key={u._id}
-                                onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#f8fafc')}
-                                onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
-                            >
-                                <td style={{ ...styles.td, ...styles.tdBold }}>
-                                    {u.name}
-                                    {u._id === currentUser?._id && (
-                                        <span style={{ ...StatusBadge.active, marginLeft: '8px', fontSize: '10px' }}>You</span>
-                                    )}
-                                </td>
-                                <td style={{ ...styles.td, ...styles.tdMonospace }}>{u.username}</td>
-                                <td style={styles.td}>
-                                    <span style={u.role === 'Admin' ? StatusBadge.admin : StatusBadge.cashier}>{u.role}</span>
-                                </td>
-                                <td style={styles.td}>
-                                    <span style={u.isActive ? StatusBadge.active : StatusBadge.inactive}>
-                                        {u.isActive ? 'Active' : 'Inactive'}
-                                    </span>
-                                </td>
-                                <td style={{ ...styles.td, ...styles.tdSmall }}>
-                                    {u.lastLogin ? new Date(u.lastLogin).toLocaleString() : 'Never'}
-                                </td>
-                                <td style={styles.td}>
-                                    <div style={styles.actionGroup}>
-                                        <button onClick={() => openEdit(u)}
-                                            style={styles.editButton}>
-                                            Edit
-                                        </button>
-                                        <button onClick={() => toggleActive(u)}
-                                            style={styles.toggleActiveButton(u.isActive)}>
-                                            {u.isActive ? 'Deactivate' : 'Activate'}
-                                        </button>
-                                        {u._id !== currentUser?._id && (
-                                            <button onClick={() => { setToDelete(u); setIsDeleteOpen(true); }}
-                                                style={styles.deleteButton}>
-                                                Delete
-                                            </button>
-                                        )}
-                                    </div>
-                                </td>
+            {error && <ErrorState message={error} onRetry={load} />}
+
+            {loading ? (
+                <TableSkeleton cols={6} />
+            ) : users.length === 0 && !error ? (
+                <div className="table-wrap">
+                    <EmptyState icon="🔑" title="No users yet" />
+                </div>
+            ) : (
+                <div className="table-wrap">
+                    <table className="table table--stack">
+                        <thead>
+                            <tr>
+                                <th scope="col">Name</th>
+                                <th scope="col">Username</th>
+                                <th scope="col">Email</th>
+                                <th scope="col">Role</th>
+                                <th scope="col">Status</th>
+                                <th scope="col">Last sign-in</th>
+                                <th scope="col">Actions</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-
-            {isModalOpen && (
-                <div style={ModalStyles.overlay}>
-                    <div style={ModalStyles.content}>
-                        <div style={ModalStyles.titleRow}>
-                            <h3 style={ModalStyles.title}>{selected ? 'Edit User' : 'New Staff User'}</h3>
-                            <button style={ModalStyles.closeBtn} onClick={() => setIsModalOpen(false)}>✕</button>
-                        </div>
-                        {!selected && (
-                            <div style={styles.infoBox}>
-                                💡 Credentials will be shared with the staff member. They'll use these to log in.
-                            </div>
-                        )}
-                        <form onSubmit={handleSubmit}>
-                            <div style={FormStyles.grid2}>
-                                <div style={FormStyles.group}>
-                                    <label style={FormStyles.label}>Full Name *</label>
-                                    <input style={FormStyles.input} value={formData.name} required
-                                        onChange={e => setFormData({ ...formData, name: e.target.value })} />
-                                </div>
-                                <div style={FormStyles.group}>
-                                    <label style={FormStyles.label}>Role *</label>
-                                    <select style={FormStyles.select} value={formData.role}
-                                        onChange={e => setFormData({ ...formData, role: e.target.value as 'Admin' | 'Cashier' })}>
-                                        <option value="Cashier">Cashier</option>
-                                        <option value="Admin">Admin</option>
-                                    </select>
-                                </div>
-                                <div style={FormStyles.group}>
-                                    <label style={FormStyles.label}>Email</label>
-                                    <input type="email" style={FormStyles.input} value={formData.email}
-                                        onChange={e => setFormData({ ...formData, email: e.target.value })}
-                                        placeholder="user@example.com" />
-                                </div>
-                                {!selected && (
-                                    <div style={FormStyles.group}>
-                                        <label style={FormStyles.label}>Username *</label>
-                                        <input style={FormStyles.input} value={formData.username} required
-                                            onChange={e => setFormData({ ...formData, username: e.target.value })} />
-                                    </div>
-                                )}
-                                <div style={FormStyles.group}>
-                                    <label style={FormStyles.label}>{selected ? 'New Password (leave blank to keep)' : 'Password *'}</label>
-                                    <div style={styles.passwordWrapper}>
-                                        <input
-                                            type={showPassword ? 'text' : 'password'}
-                                            style={{ ...FormStyles.input, ...styles.passwordInput }}
-                                            value={formData.password}
-                                            required={!selected}
-                                            onChange={e => setFormData({ ...formData, password: e.target.value })}
-                                        />
-                                        <button type="button" onClick={() => setShowPassword(!showPassword)}
-                                            style={styles.passwordToggle}>
-                                            {showPassword ? 'Hide' : 'Show'}
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                            <div style={FormStyles.buttonRow}>
-                                <button type="button" style={FormStyles.cancelButton} onClick={() => setIsModalOpen(false)}>Cancel</button>
-                                {selected && (
-                                    <button type="button"
-                                        onClick={handleShare}
-                                        style={{ ...FormStyles.submitButton, ...styles.shareButton }}>
-                                        Share Credentials
-                                    </button>
-                                )}
-                                <button type="submit" style={FormStyles.submitButton}>{selected ? 'Save Changes' : 'Create User'}</button>
-                            </div>
-                        </form>
-                    </div>
+                        </thead>
+                        <tbody>
+                            {users.map(user => {
+                                const isSelf = user._id === currentUser?._id;
+                                return (
+                                    <tr key={user._id}>
+                                        <td data-label="Name">
+                                            <strong>{user.name}</strong>
+                                            {isSelf && <span className="faint text-sm"> (you)</span>}
+                                        </td>
+                                        <td data-label="Username" className="table__mono">
+                                            {user.username}
+                                        </td>
+                                        <td data-label="Email" className="table__truncate">
+                                            {user.email || '—'}
+                                        </td>
+                                        <td data-label="Role">
+                                            <StatusBadge status={user.role} />
+                                        </td>
+                                        <td data-label="Status">
+                                            <StatusBadge status={user.isActive ? 'Active' : 'Inactive'} />
+                                            {user.mustChangePassword && (
+                                                <span className="badge badge--warning" style={{ marginLeft: 6 }}>
+                                                    Password pending
+                                                </span>
+                                            )}
+                                        </td>
+                                        <td data-label="Last sign-in">{formatDateTime(user.lastLogin)}</td>
+                                        <td data-label="Actions">
+                                            <div className="btn-group">
+                                                <button
+                                                    type="button"
+                                                    className="btn btn--sm"
+                                                    onClick={() => {
+                                                        setEditing(user);
+                                                        setEditForm({
+                                                            name: user.name,
+                                                            role: user.role,
+                                                            email: user.email ?? '',
+                                                        });
+                                                        setFieldErrors({});
+                                                    }}
+                                                >
+                                                    Edit
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className="btn btn--sm"
+                                                    onClick={() => void sendSetupLink(user)}
+                                                    disabled={!user.email}
+                                                    title={user.email ? undefined : 'Add an email address first'}
+                                                >
+                                                    Send setup link
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className="btn btn--sm"
+                                                    onClick={() => setToToggle(user)}
+                                                    disabled={isSelf}
+                                                >
+                                                    {user.isActive ? 'Deactivate' : 'Activate'}
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className="btn btn--sm btn--danger"
+                                                    onClick={() => setToDelete(user)}
+                                                    disabled={isSelf}
+                                                >
+                                                    Delete
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
                 </div>
             )}
 
-            <DeleteConfirmation
-                isOpen={isDeleteOpen}
-                onClose={() => setIsDeleteOpen(false)}
-                onConfirm={confirmDelete}
-                itemName={toDelete?.name || ''}
+            {/* ─── Create ─── */}
+            <Modal
+                isOpen={createOpen}
+                onClose={() => setCreateOpen(false)}
+                title="Add user"
+                footer={
+                    <>
+                        <button type="button" className="btn" onClick={() => setCreateOpen(false)} disabled={saving}>
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            form="create-user-form"
+                            className="btn btn--primary"
+                            disabled={saving || !!passwordError}
+                        >
+                            {saving && <span className="spinner" aria-hidden="true" />}
+                            Create user
+                        </button>
+                    </>
+                }
+            >
+                <form id="create-user-form" onSubmit={handleCreate} className="form-grid">
+                    <Field label="Full name" htmlFor="name" required error={fieldErrors.name}>
+                        <input
+                            id="name"
+                            className="input"
+                            value={createForm.name}
+                            onChange={e => setCreateForm({ ...createForm, name: e.target.value })}
+                            required
+                        />
+                    </Field>
+
+                    <Field
+                        label="Username"
+                        htmlFor="username"
+                        required
+                        error={fieldErrors.username}
+                        hint="Letters, numbers, dot, underscore and hyphen."
+                    >
+                        <input
+                            id="username"
+                            className="input"
+                            value={createForm.username}
+                            onChange={e => setCreateForm({ ...createForm, username: e.target.value })}
+                            autoComplete="off"
+                            required
+                        />
+                    </Field>
+
+                    <Field label="Role" htmlFor="role" error={fieldErrors.role}>
+                        <select
+                            id="role"
+                            className="select"
+                            value={createForm.role}
+                            onChange={e => setCreateForm({ ...createForm, role: e.target.value as Role })}
+                        >
+                            <option value="Cashier">Cashier</option>
+                            <option value="Admin">Admin</option>
+                        </select>
+                    </Field>
+
+                    <Field
+                        label="Email"
+                        htmlFor="email"
+                        error={fieldErrors.email}
+                        hint="Needed to send a password setup link."
+                    >
+                        <input
+                            id="email"
+                            className="input"
+                            type="email"
+                            value={createForm.email}
+                            onChange={e => setCreateForm({ ...createForm, email: e.target.value })}
+                        />
+                    </Field>
+
+                    <Field
+                        label="Temporary password"
+                        htmlFor="password"
+                        required
+                        full
+                        error={passwordError ?? fieldErrors.password}
+                        hint="The user must replace this at first sign-in. Prefer sending a setup link instead."
+                    >
+                        <input
+                            id="password"
+                            className="input"
+                            type="password"
+                            value={createForm.password}
+                            onChange={e => setCreateForm({ ...createForm, password: e.target.value })}
+                            aria-invalid={!!passwordError}
+                            autoComplete="new-password"
+                            required
+                        />
+                    </Field>
+
+                    <div className="field--full">
+                        <PasswordStrength password={createForm.password} />
+                    </div>
+                </form>
+            </Modal>
+
+            {/* ─── Edit ─── */}
+            <Modal
+                isOpen={!!editing}
+                onClose={() => setEditing(null)}
+                title={editing ? `Edit ${editing.name}` : ''}
+                size="sm"
+                footer={
+                    <>
+                        <button type="button" className="btn" onClick={() => setEditing(null)} disabled={saving}>
+                            Cancel
+                        </button>
+                        <button type="submit" form="edit-user-form" className="btn btn--primary" disabled={saving}>
+                            {saving && <span className="spinner" aria-hidden="true" />}
+                            Save changes
+                        </button>
+                    </>
+                }
+            >
+                <form id="edit-user-form" onSubmit={handleEdit} className="stack">
+                    <Field label="Full name" htmlFor="edit-name" required error={fieldErrors.name}>
+                        <input
+                            id="edit-name"
+                            className="input"
+                            value={editForm.name}
+                            onChange={e => setEditForm({ ...editForm, name: e.target.value })}
+                            required
+                        />
+                    </Field>
+
+                    <Field label="Role" htmlFor="edit-role" error={fieldErrors.role}>
+                        <select
+                            id="edit-role"
+                            className="select"
+                            value={editForm.role}
+                            onChange={e => setEditForm({ ...editForm, role: e.target.value as Role })}
+                        >
+                            <option value="Cashier">Cashier</option>
+                            <option value="Admin">Admin</option>
+                        </select>
+                    </Field>
+
+                    <Field label="Email" htmlFor="edit-email" error={fieldErrors.email}>
+                        <input
+                            id="edit-email"
+                            className="input"
+                            type="email"
+                            value={editForm.email}
+                            onChange={e => setEditForm({ ...editForm, email: e.target.value })}
+                        />
+                    </Field>
+
+                    <p className="field__hint">
+                        Passwords cannot be set here. Send a setup link so only the user ever knows their password.
+                    </p>
+                </form>
+            </Modal>
+
+            <ConfirmDialog
+                isOpen={!!toToggle}
+                onClose={() => setToToggle(null)}
+                onConfirm={() =>
+                    runAction(
+                        () => usersAPI.toggleActive(toToggle!._id),
+                        toToggle!.isActive ? 'User deactivated' : 'User activated',
+                        () => setToToggle(null)
+                    )
+                }
+                title={toToggle?.isActive ? 'Deactivate user' : 'Activate user'}
+                message={
+                    toToggle?.isActive
+                        ? `${toToggle?.name} will no longer be able to sign in. Their records are kept.`
+                        : `${toToggle?.name} will be able to sign in again.`
+                }
+                confirmLabel={toToggle?.isActive ? 'Deactivate' : 'Activate'}
+                tone={toToggle?.isActive ? 'danger' : 'primary'}
             />
-        </div>
+
+            <ConfirmDialog
+                isOpen={!!toDelete}
+                onClose={() => setToDelete(null)}
+                onConfirm={() =>
+                    runAction(() => usersAPI.remove(toDelete!._id), 'User deleted', () => setToDelete(null))
+                }
+                title="Delete user"
+                message={`Permanently delete ${toDelete?.name}? Consider deactivating instead, which keeps the audit trail intact.`}
+                confirmLabel="Delete"
+            />
+        </>
     );
 };
 

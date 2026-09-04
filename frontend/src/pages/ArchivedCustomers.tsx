@@ -1,93 +1,93 @@
-import React, { useEffect, useState } from 'react';
+import toast from 'react-hot-toast';
 import { customersAPI } from '../services/api';
-import { ArchivedCustomersStyles as styles } from '../styles/ArchivedCustomersStyles';
+import { errorMessage } from '../services/httpClient';
+import { usePagedQuery } from '../hooks/usePagedQuery';
+import { EmptyState, ErrorState, PageHeader, Pagination, TableSkeleton } from '../components/ui';
+import { formatDate } from '../utils/format';
+import type { Customer } from '../types/api';
 
-const ArchivedCustomers: React.FC = () => {
-    const [customers, setCustomers] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
+const ArchivedCustomers = () => {
+    const query = usePagedQuery<Customer>(params => customersAPI.getArchived(params));
 
-    const fetch = async () => {
-        setLoading(true);
+    const restore = async (customer: Customer) => {
         try {
-            const res = await customersAPI.getArchived();
-            setCustomers(res.data);
-        } catch (e) { 
-            console.error(e); 
-        }
-        finally { 
-            setLoading(false); 
+            await customersAPI.restore(customer._id);
+            toast.success(`${customer.firstName} ${customer.lastName} restored`);
+            query.refresh();
+        } catch (err) {
+            toast.error(errorMessage(err));
         }
     };
-
-    useEffect(() => {
-         fetch(); 
-    }, []);
-
-    const handleRestore = async (id: string) => {
-        try { 
-            await customersAPI.restore(id); 
-            fetch(); 
-        }
-        catch { 
-            alert('Restore failed'); 
-        }
-    };
-
-    const handleDelete = async (id: string) => {
-        if (!window.confirm('Permanently delete this archived customer? This cannot be undone.')) return;
-        try { 
-            await customersAPI.delete(id);
-            fetch(); 
-        }
-        catch { 
-            alert('Delete failed'); 
-        }
-    };
-
-    if (loading) return <div style={styles.loading}>Loading archived customers...</div>;
 
     return (
-        <div style={styles.container}>
-            <div style={styles.header}>
-                <div>
-                    <h2 style={styles.title}>Archived Customers</h2>
-                    <p style={styles.subtitle}>{customers.length} archived customer records</p>
+        <>
+            <PageHeader
+                title="Archived customers"
+                subtitle={query.meta ? `${query.meta.total} archived` : 'Loading…'}
+            />
+
+            <div className="filter-bar">
+                <label className="sr-only" htmlFor="archived-customer-search">
+                    Search archived customers
+                </label>
+                <input
+                    id="archived-customer-search"
+                    className="input"
+                    type="search"
+                    placeholder="Search name, phone or NIC…"
+                    value={query.search}
+                    onChange={e => query.setSearch(e.target.value)}
+                />
+            </div>
+
+            {query.error && <ErrorState message={query.error} onRetry={query.refresh} />}
+
+            {query.loading && query.items.length === 0 ? (
+                <TableSkeleton cols={5} />
+            ) : query.items.length === 0 && !query.error ? (
+                <div className="table-wrap">
+                    <EmptyState icon="👥" title="No archived customers" />
                 </div>
-            </div>
-            <div style={styles.tableWrapper}>
-                <table style={styles.table}>
-                    <thead>
-                        <tr>
-                            <th style={styles.th}>Name</th>
-                            <th style={styles.th}>Phone</th>
-                            <th style={styles.th}>NIC / Passport</th>
-                            <th style={styles.th}>Archived</th>
-                            <th style={styles.th}>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {customers.length > 0 ? customers.map((c: any) => (
-                            <tr key={c._id}>
-                                <td style={{ ...styles.td, ...styles.tdBold }}>{c.firstName} {c.lastName}</td>
-                                <td style={styles.td}>{c.phone}</td>
-                                <td style={{ ...styles.td, ...styles.tdMonospace }}>{c.nicOrPassport}</td>
-                                <td style={{ ...styles.td, ...styles.tdSmall }}>
-                                    {c.archivedAt ? new Date(c.archivedAt).toLocaleDateString() : '—'}
-                                </td>
-                                <td style={styles.td}>
-                                    <div style={styles.actionGroup}>
-                                        <button onClick={() => handleRestore(c._id)} style={styles.restoreButton}>Restore</button>
-                                        <button onClick={() => handleDelete(c._id)} style={styles.deleteButton}>Delete</button>
-                                    </div>
-                                </td>
+            ) : (
+                <div className="table-wrap">
+                    <table className="table table--stack">
+                        <thead>
+                            <tr>
+                                <th scope="col">Name</th>
+                                <th scope="col">Phone</th>
+                                <th scope="col">NIC / Passport</th>
+                                <th scope="col">Archived</th>
+                                <th scope="col">Actions</th>
                             </tr>
-                        )) : (
-                            <tr><td colSpan={5} style={styles.noData}>No archived customers.</td></tr>
-                        )}
-                    </tbody>
-                </table>
-            </div>
-        </div>
+                        </thead>
+                        <tbody>
+                            {query.items.map(customer => (
+                                <tr key={customer._id}>
+                                    <td data-label="Name">
+                                        <strong>
+                                            {customer.firstName} {customer.lastName}
+                                        </strong>
+                                    </td>
+                                    <td data-label="Phone" className="table__mono">
+                                        {customer.phone}
+                                    </td>
+                                    <td data-label="NIC / Passport" className="table__mono">
+                                        {customer.nicOrPassport}
+                                    </td>
+                                    <td data-label="Archived">{formatDate(customer.archivedAt)}</td>
+                                    <td data-label="Actions">
+                                        <button type="button" className="btn btn--sm" onClick={() => void restore(customer)}>
+                                            Restore
+                                        </button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                    {query.meta && <Pagination meta={query.meta} onPageChange={query.setPage} />}
+                </div>
+            )}
+        </>
     );
 };
 

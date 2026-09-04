@@ -1,72 +1,136 @@
 import cron from 'node-cron';
 import ProductRental from '../models/ProductRental';
-import { sendSMS, sendEmail } from './aws';
 import { ICustomer } from '../interfaces/ICustomer';
+import { notifications } from '../services/notifications';
+import rentalService from '../services/rentalService';
+import studioRentalService from '../services/studioRentalService';
+import { logger } from './logger';
+import { env } from '../config/env';
+import { startOfDay } from './pricing';
 
-export const runDueDateReminders = async (): Promise<number> => {
-    console.log('Running due date reminders...');
-    try {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+type ReminderKind = 'due-tomorrow' | 'due-today' | 'overdue';
 
-        const yesterday = new Date(today);
-        yesterday.setDate(yesterday.getDate() - 1);
+export interface ReminderRunResult {
+    scanned: number;
+    sent: number;
+    skipped: number;
+    failed: number;
+}
 
-        const tomorrow = new Date(today);
-        tomorrow.setDate(tomorrow.getDate() + 1);
-
-        // Find rentals due yesterday, today, or tomorrow
-        const rentals = await ProductRental.find({
-            status: 'Rented',
-            dueDate: {
-                $gte: yesterday,
-                $lte: new Date(tomorrow.getTime() + 24 * 60 * 60 * 1000)
-            }
-        }).populate('customer');
-
-        let processedCount = 0;
-
-        for (const rental of rentals) {
-            const customer = rental.customer as unknown as ICustomer;
-            if (!customer) continue;
-
-            const dueDate = new Date(rental.dueDate);
-            dueDate.setHours(0, 0, 0, 0);
-
-            let message = '';
-            if (dueDate.getTime() === tomorrow.getTime()) {
-                message = `Reminder: Your rental ${rental.rentalId} is due tomorrow (${dueDate.toLocaleDateString()}). Please return it to ELVI Studio.`;
-            } else if (dueDate.getTime() === today.getTime()) {
-                message = `Reminder: Your rental ${rental.rentalId} is due TODAY. Please return it to ELVI Studio.`;
-            } else if (dueDate.getTime() === yesterday.getTime()) {
-                message = `URGENT: Your rental ${rental.rentalId} was due yesterday (${dueDate.toLocaleDateString()}). Please return it immediately to avoid extra charges.`;
-            }
-
-            if (message) {
-                processedCount++;
-                // Send SMS if phone exists
-                if (customer.phone) {
-                    try { await sendSMS(customer.phone, message); } catch (e) { console.error('SMS Failed', e); }
-                }
-                // Send Email if email exists
-                if (customer.email) {
-                    try { await sendEmail(customer.email, 'Rental Due Date Reminder - ELVI Studio', message); } catch (e) { console.error('Email Failed', e); }
-                }
-            }
-        }
-        console.log(`Due date reminders completed. Processed ${processedCount} rentals.`);
-        return processedCount;
-    } catch (err) {
-        console.error('Reminder Job Error:', err);
-        throw err;
+const messageFor = (kind: ReminderKind, rentalId: string, dueDate: Date): string => {
+    const date = dueDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    switch (kind) {
+        case 'due-tomorrow':
+            return `Reminder: rental ${rentalId} is due tomorrow (${date}). Please return it to ELVI Studio.`;
+        case 'due-today':
+            return `Reminder: rental ${rentalId} is due today (${date}). Please return it to ELVI Studio.`;
+        case 'overdue':
+            return `URGENT: rental ${rentalId} was due on ${date} and is now overdue. Please return it to avoid further charges.`;
     }
 };
 
-// Schedule reminders every day at 9:00 AM
+const classify = (dueDate: Date, today: Date): ReminderKind | null => {
+    const diffDays = Math.round((startOfDay(dueDate).getTime() - today.getTime()) / 86_400_000);
+    if (diffDays === 1) return 'due-tomorrow';
+    if (diffDays === 0) return 'due-today';
+    if (diffDays < 0) return 'overdue';
+    return null;
+};
+
+/**
+ * Sends due-date reminders.
+ *
+ * Each rental records which reminder kinds it has already received, so a
+ * restart, a second API instance, or a manual trigger cannot send the same
+ * reminder twice. The marker is written before dispatch — a customer missing
+ * one reminder is far better than being messaged repeatedly.
+ */
+export const runDueDateReminders = async (): Promise<ReminderRunResult> => {
+    const today = startOfDay(new Date());
+    const horizon = new Date(today.getTime() + 2 * 86_400_000);
+
+    const rentals = await ProductRental.find({
+        status: { $in: ['Rented', 'Overdue'] },
+        isDeleted: false,
+        isArchived: false,
+        dueDate: { $lte: horizon },
+    }).populate<{ customer: ICustomer }>('customer');
+
+    const result: ReminderRunResult = { scanned: rentals.length, sent: 0, skipped: 0, failed: 0 };
+
+    // Sequential per rental, but both channels for one rental go out together.
+    for (const rental of rentals) {
+        const kind = classify(rental.dueDate, today);
+        const customer = rental.customer;
+
+        if (!kind || !customer || rental.remindersSent.includes(kind)) {
+            result.skipped++;
+            continue;
+        }
+
+        // Claim the reminder atomically: if another instance already added this
+        // kind, modifiedCount is 0 and we skip rather than double-send.
+        const claim = await ProductRental.updateOne(
+            { _id: rental._id, remindersSent: { $ne: kind } },
+            { $addToSet: { remindersSent: kind }, $set: { lastReminderSentAt: new Date() } }
+        );
+        if (claim.modifiedCount === 0) {
+            result.skipped++;
+            continue;
+        }
+
+        const message = messageFor(kind, rental.rentalId, rental.dueDate);
+        const outcomes = await Promise.all([
+            customer.phone ? notifications.sendSms(customer.phone, message) : null,
+            customer.email
+                ? notifications.sendEmail(customer.email, 'Rental due date reminder — ELVI Studio', message)
+                : null,
+        ]);
+
+        const attempted = outcomes.filter(Boolean);
+        if (attempted.length && attempted.every(o => o!.ok === false)) {
+            result.failed++;
+            // Release the claim so the next run can retry a total failure.
+            await ProductRental.updateOne({ _id: rental._id }, { $pull: { remindersSent: kind } });
+            logger.warn({ rentalId: rental.rentalId, kind }, 'All reminder channels failed — will retry next run');
+        } else {
+            result.sent++;
+        }
+    }
+
+    logger.info(result, 'Due date reminder run complete');
+    return result;
+};
+
+/** Keeps rental and booking statuses current. */
+export const runStatusSweep = async () => {
+    const [overdue, completed] = await Promise.all([
+        rentalService.markOverdueRentals(),
+        studioRentalService.completePastBookings(),
+    ]);
+    logger.info({ overdue, completed }, 'Status sweep complete');
+    return { overdue, completed };
+};
+
+/**
+ * In-process scheduling is fine for a single instance. Set ENABLE_CRON=false
+ * and drive these from an external scheduler (an Azure Function timer trigger)
+ * when running more than one instance, or every instance fires the job.
+ */
 export const initCronJobs = () => {
-    cron.schedule('0 9 * * *', async () => {
-        await runDueDateReminders();
+    if (!env.ENABLE_CRON) {
+        logger.info('ENABLE_CRON is false — in-process jobs are disabled');
+        return;
+    }
+
+    cron.schedule(env.REMINDER_CRON, async () => {
+        try {
+            await runStatusSweep();
+            await runDueDateReminders();
+        } catch (err) {
+            logger.error({ err }, 'Scheduled reminder job failed');
+        }
     });
-    
-    console.log('Cron jobs initialized.');
+
+    logger.info({ schedule: env.REMINDER_CRON }, 'Cron jobs initialised');
 };

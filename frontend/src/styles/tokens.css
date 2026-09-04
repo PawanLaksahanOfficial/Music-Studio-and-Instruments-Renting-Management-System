@@ -1,0 +1,175 @@
+/**
+ * Design tokens.
+ *
+ * Defined as CSS custom properties rather than a JavaScript object, so they
+ * work in media queries, pseudo-classes and print rules — none of which an
+ * inline `style` attribute can express.
+ */
+
+:root {
+    color-scheme: light;
+
+    /* Surfaces */
+    --c-bg: #f1f4f9;
+    --c-surface: #ffffff;
+    --c-surface-2: #f8fafc;
+    --c-surface-3: #eef2f7;
+    --c-sidebar: #161b2b;
+    --c-sidebar-hover: #262d42;
+    --c-border: #e2e8f0;
+    --c-border-strong: #cbd5e1;
+    --c-overlay: rgb(15 20 40 / 55%);
+
+    /* Text */
+    --c-text: #16202e;
+    --c-text-muted: #5b6b80;
+    --c-text-faint: #8a99ac;
+    --c-text-inverse: #ffffff;
+
+    /* Brand + intent */
+    --c-accent: #2f6fed;
+    --c-accent-hover: #2559c8;
+    --c-accent-soft: #e6eeff;
+    --c-success: #0f8a5f;
+    --c-success-soft: #d8f3e6;
+    --c-warning: #b26a00;
+    --c-warning-soft: #fdf0d5;
+    --c-danger: #c62f38;
+    --c-danger-hover: #a5262e;
+    --c-danger-soft: #fde4e6;
+    --c-info: #0b7285;
+    --c-info-soft: #d7f0f5;
+    --c-neutral: #5b6b80;
+    --c-neutral-soft: #eaeef4;
+
+    /* Chart series — distinguishable in both themes and for common CVD types */
+    --c-chart-1: #2f6fed;
+    --c-chart-2: #0f8a5f;
+    --c-chart-3: #b26a00;
+    --c-chart-4: #8b5cf6;
+    --c-chart-5: #0b7285;
+
+    /* Radii */
+    --r-sm: 6px;
+    --r-md: 10px;
+    --r-lg: 14px;
+    --r-pill: 999px;
+
+    /* Elevation */
+    --s-sm: 0 1px 2px rgb(16 24 40 / 6%), 0 1px 3px rgb(16 24 40 / 8%);
+    --s-md: 0 2px 6px rgb(16 24 40 / 8%), 0 8px 20px rgb(16 24 40 / 8%);
+    --s-lg: 0 8px 28px rgb(16 24 40 / 16%);
+
+    /* Spacing scale */
+    --sp-1: 4px;
+    --sp-2: 8px;
+    --sp-3: 12px;
+    --sp-4: 16px;
+    --sp-5: 24px;
+    --sp-6: 32px;
+    --sp-7: 48px;
+
+    /* Type */
+    --font-sans: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    --font-mono: 'SFMono-Regular', 'Cascadia Mono', Consolas, monospace;
+    --fs-xs: 11px;
+    --fs-sm: 12px;
+    --fs-base: 14px;
+    --fs-md: 16px;
+    --fs-lg: 20px;
+    --fs-xl: 26px;
+
+    --sidebar-w: 248px;
+    --header-h: 60px;
+    --transition: 150ms ease;
+}
+
+/* Dark theme, applied by the OS preference unless the user picked light. */
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme='light']) {
+        color-scheme: dark;
+
+        --c-bg: #0e131c;
+        --c-surface: #161d29;
+        --c-surface-2: #1c2532;
+        --c-surface-3: #232d3d;
+        --c-sidebar: #0a0e16;
+        --c-sidebar-hover: #1c2532;
+        --c-border: #2a3547;
+        --c-border-strong: #3a4759;
+        --c-overlay: rgb(0 0 0 / 68%);
+
+        --c-text: #e8edf5;
+        --c-text-muted: #9aa9bd;
+        --c-text-faint: #6b7a8f;
+
+        --c-accent: #6a9bff;
+        --c-accent-hover: #85adff;
+        --c-accent-soft: #1b2a47;
+        --c-success: #4ade9f;
+        --c-success-soft: #10301f;
+        --c-warning: #f0b45c;
+        --c-warning-soft: #34240a;
+        --c-danger: #ff7b84;
+        --c-danger-hover: #ff9aa1;
+        --c-danger-soft: #3a1418;
+        --c-info: #4ec9de;
+        --c-info-soft: #0c2c33;
+        --c-neutral: #9aa9bd;
+        --c-neutral-soft: #232d3d;
+
+        --c-chart-1: #6a9bff;
+        --c-chart-2: #4ade9f;
+        --c-chart-3: #f0b45c;
+        --c-chart-4: #b98cff;
+        --c-chart-5: #4ec9de;
+
+        --s-sm: 0 1px 2px rgb(0 0 0 / 40%);
+        --s-md: 0 2px 8px rgb(0 0 0 / 45%);
+        --s-lg: 0 8px 28px rgb(0 0 0 / 55%);
+    }
+}
+
+/* Explicit dark choice wins over the OS preference in both directions. */
+:root[data-theme='dark'] {
+    color-scheme: dark;
+
+    --c-bg: #0e131c;
+    --c-surface: #161d29;
+    --c-surface-2: #1c2532;
+    --c-surface-3: #232d3d;
+    --c-sidebar: #0a0e16;
+    --c-sidebar-hover: #1c2532;
+    --c-border: #2a3547;
+    --c-border-strong: #3a4759;
+    --c-overlay: rgb(0 0 0 / 68%);
+
+    --c-text: #e8edf5;
+    --c-text-muted: #9aa9bd;
+    --c-text-faint: #6b7a8f;
+
+    --c-accent: #6a9bff;
+    --c-accent-hover: #85adff;
+    --c-accent-soft: #1b2a47;
+    --c-success: #4ade9f;
+    --c-success-soft: #10301f;
+    --c-warning: #f0b45c;
+    --c-warning-soft: #34240a;
+    --c-danger: #ff7b84;
+    --c-danger-hover: #ff9aa1;
+    --c-danger-soft: #3a1418;
+    --c-info: #4ec9de;
+    --c-info-soft: #0c2c33;
+    --c-neutral: #9aa9bd;
+    --c-neutral-soft: #232d3d;
+
+    --c-chart-1: #6a9bff;
+    --c-chart-2: #4ade9f;
+    --c-chart-3: #f0b45c;
+    --c-chart-4: #b98cff;
+    --c-chart-5: #4ec9de;
+
+    --s-sm: 0 1px 2px rgb(0 0 0 / 40%);
+    --s-md: 0 2px 8px rgb(0 0 0 / 45%);
+    --s-lg: 0 8px 28px rgb(0 0 0 / 55%);
+}

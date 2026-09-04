@@ -6,10 +6,14 @@ export type StudioPaymentStatus = 'Paid' | 'Pending';
 export interface IStudioRental extends Document {
     bookingId: string;
     customer: Types.ObjectId;
+    room: Types.ObjectId;
+    /** Room name captured at booking time, so a later rename does not rewrite history. */
     roomName: string;
     startTime: Date;
     endTime: Date;
-    durationHours?: number;
+    durationHours: number;
+    /** Hourly rate captured at booking time. */
+    hourlyRate: number;
     totalAmount: number;
     status: StudioRentalStatus;
     paymentStatus: StudioPaymentStatus;

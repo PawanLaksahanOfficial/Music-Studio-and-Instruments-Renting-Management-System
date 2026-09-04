@@ -1,537 +1,385 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import toast from 'react-hot-toast';
 import { rentalsAPI } from '../services/api';
+import { ApiError, errorMessage } from '../services/httpClient';
 import QRScanner from '../components/QRScanner';
-import { useAuth } from '../context/AuthContext';
-import { StatusBadge } from '../styles/AllStyles';
-import { QRReturnPageStyles as s } from '../styles/QRReturnPageStyles';
+import { EmptyState, Field, StatusBadge } from '../components/ui';
+import { currency, formatDate, toDateInput } from '../utils/format';
+import type { Rental } from '../types/api';
 
-type Stage = 'idle' | 'scanning' | 'found' | 'not_found' | 'not_rented' | 'review' | 'done';
-type PayMethod = 'Cash' | 'Card' | 'Transfer';
-type PayStatus = 'Paid' | 'Pending' | 'Partial';
+type Stage = 'scan' | 'review' | 'done';
 
-interface RentalData {
-    _id: string;
-    rentalId: string;
-    customer: {
-        _id: string;
-        firstName: string;
-        lastName: string;
-        phone: string;
-        email?: string;
-        nicOrPassport?: string;
-    };
-    items: Array<{
-        itemId: {
-            _id: string;
-            itemName: string;
-            serialNumber: string;
-            brand?: string;
-            itemModel?: string;
-            baseRentalPrice: number;
-            purchaseDate?: string;
-        };
-        quantity: number;
-    }>;
-    rentalDate: string;
-    dueDate: string;
-    returnDate?: string;
-    status: string;
-    totalAmount: number;
-    paymentStatus: string;
-    notes?: string;
+interface DamageEntry {
+    itemId: string;
+    damaged: boolean;
+    charge: string;
+    note: string;
 }
 
-interface ReturnResult {
-    _id: string;
-    rentalId: string;
-    customer: { firstName: string; lastName: string; phone: string };
-    items: Array<{ itemId: { itemName: string; serialNumber: string; brand?: string } }>;
-    rentalDate: string;
-    dueDate: string;
-    returnDate: string;
-    status: string;
-    totalAmount: number;
-    lateFee: number;
-    damageCharges: number;
-    damageNotes: string;
-    paymentStatus: string;
-}
+const today = () => toDateInput(new Date());
 
-const today = () => new Date().toISOString().split('T')[0];
-
-const daysBetween = (a: string, b: string) => {
-    if (!a || !b) return 0;
-    return Math.max(0, Math.ceil((new Date(b).getTime() - new Date(a).getTime()) / 86400000));
+const daysLate = (dueDate: string, returnDate: string) => {
+    const due = new Date(dueDate);
+    due.setHours(0, 0, 0, 0);
+    const ret = new Date(returnDate);
+    ret.setHours(0, 0, 0, 0);
+    return Math.max(0, Math.round((ret.getTime() - due.getTime()) / 86_400_000));
 };
 
-const fmtDate = (d: string) =>
-    d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+const QRReturnPage = () => {
+    const [stage, setStage] = useState<Stage>('scan');
+    const [rental, setRental] = useState<Rental | null>(null);
+    const [notFoundMessage, setNotFoundMessage] = useState<string | null>(null);
+    const [looking, setLooking] = useState(false);
 
-const currency = (n: number) => `Rs. ${n.toLocaleString('en-LK')}`;
-
-const QRReturnPage: React.FC = () => {
-    const navigate = useNavigate();
-    const [stage, setStage] = useState<Stage>('idle');
-    const [scannedId, setScannedId] = useState('');
-    const [rental, setRental] = useState<RentalData | null>(null);
-    const [errMsg, setErrMsg] = useState('');
-    const [saving, setSaving] = useState(false);
-    const [result, setResult] = useState<ReturnResult | null>(null);
-    const printRef = useRef<HTMLDivElement>(null);
     const [returnDate, setReturnDate] = useState(today());
-    const [lateFee, setLateFee] = useState(0);
-    const [damageCharges, setDamageCharges] = useState(0);
-    const [damageNotes, setDamageNotes] = useState('');
-    const [paymentMethod, setPaymentMethod] = useState<PayMethod>('Cash');
-    const [paymentStatus, setPaymentStatus] = useState<PayStatus>('Pending');
+    const [damages, setDamages] = useState<DamageEntry[]>([]);
+    const [lateFeeOverride, setLateFeeOverride] = useState<string>('');
+    const [useOverride, setUseOverride] = useState(false);
+    const [paymentStatus, setPaymentStatus] = useState<'Paid' | 'Pending' | 'Partial'>('Paid');
+    const [notes, setNotes] = useState('');
+    const [saving, setSaving] = useState(false);
+    const [result, setResult] = useState<Rental | null>(null);
 
-    // Auto calculate late fee when dates change
-    useEffect(() => {
-        if (rental && returnDate) {
-            const due = new Date(rental.dueDate);
-            const ret = new Date(returnDate);
-            if (ret > due) {
-                const lateDays = daysBetween(rental.dueDate, returnDate);
-                const dailyRate = rental.items[0]?.itemId?.baseRentalPrice || 0;
-                setLateFee(lateDays * dailyRate);
-            } else {
-                setLateFee(0);
-            }
-        }
-    }, [rental, returnDate]);
+    const dailyRateTotal = useMemo(
+        () => (rental ? rental.items.reduce((sum, i) => sum + i.dailyRate * i.quantity, 0) : 0),
+        [rental]
+    );
+    const computedLateDays = rental ? daysLate(rental.dueDate, returnDate) : 0;
+    const computedLateFee = computedLateDays * dailyRateTotal;
+    const effectiveLateFee = useOverride ? Number(lateFeeOverride) || 0 : computedLateFee;
+    const damageTotal = damages.filter(d => d.damaged).reduce((sum, d) => sum + (Number(d.charge) || 0), 0);
+    const projectedTotal = (rental?.baseAmount ?? 0) + effectiveLateFee + damageTotal;
 
     const handleScan = async (qrCodeId: string) => {
-        setScannedId(qrCodeId);
-        setErrMsg('');
-        setStage('idle');
+        setLooking(true);
+        setNotFoundMessage(null);
         try {
-            const res = await rentalsAPI.getByQR(qrCodeId);
-            const found: RentalData = res.data;
+            const found = await rentalsAPI.getByQR(qrCodeId);
             setRental(found);
             setReturnDate(today());
-            setLateFee(0);
-            setDamageCharges(0);
-            setDamageNotes('');
-            setPaymentMethod('Cash');
-            setPaymentStatus('Pending');
-            setStage('found');
-        } catch (err: any) {
-            const status = err?.response?.status;
-            if (status === 404) {
-                const msg = err?.response?.data?.message || '';
-                setStage(msg.includes('No inventory') ? 'not_found' : 'not_rented');
-            } else {
-                setErrMsg('Server error. Check connection.');
-                setStage('idle');
-            }
+            setDamages(
+                found.items.map(i => ({
+                    itemId: typeof i.itemId === 'string' ? i.itemId : i.itemId._id,
+                    damaged: false,
+                    charge: '',
+                    note: '',
+                }))
+            );
+            setLateFeeOverride('');
+            setUseOverride(false);
+            setPaymentStatus('Paid');
+            setNotes('');
+            setStage('review');
+        } catch (err) {
+            setNotFoundMessage(
+                err instanceof ApiError
+                    ? err.message
+                    : errorMessage(err)
+            );
+        } finally {
+            setLooking(false);
         }
     };
 
-    const handleProcessReturn = async () => {
-        if (!rental || !returnDate) return;
+    // Escape hatch back to scanning without losing entered data by accident.
+    useEffect(() => {
+        if (stage === 'scan') {
+            setRental(null);
+            setNotFoundMessage(null);
+        }
+    }, [stage]);
+
+    const updateDamage = (itemId: string, patch: Partial<DamageEntry>) =>
+        setDamages(prev => prev.map(d => (d.itemId === itemId ? { ...d, ...patch } : d)));
+
+    const handleSubmit = async () => {
+        if (!rental) return;
         setSaving(true);
-        setErrMsg('');
         try {
-            const res = await rentalsAPI.processReturn({
+            const returned = await rentalsAPI.processReturn({
                 rentalId: rental._id,
                 returnDate,
-                lateFee,
-                damageCharges,
-                damageNotes,
+                damages: damages
+                    .filter(d => d.damaged)
+                    .map(d => ({ itemId: d.itemId, charge: Number(d.charge) || 0, note: d.note || undefined })),
+                lateFeeOverride: useOverride ? Number(lateFeeOverride) || 0 : undefined,
                 paymentStatus,
-                paymentMethod,
+                notes: notes || undefined,
             });
-            setResult(res.data);
+            setResult(returned);
             setStage('done');
-        } catch (err: any) {
-            setErrMsg(err?.response?.data?.message || 'Failed to process return. Try again.');
+            toast.success(`${returned.rentalId} returned — ${currency(returned.totalAmount)}`);
+        } catch (err) {
+            toast.error(errorMessage(err));
         } finally {
             setSaving(false);
         }
     };
 
-    const handlePrint = () => {
-        const content = printRef.current;
-        if (!content) return;
-        const w = window.open('', '_blank');
-        if (!w) return;
-        w.document.write(`<!DOCTYPE html><html><head><title>Return Receipt ${result?.rentalId ?? ''}</title>
-        <style>
-            *{box-sizing:border-box;margin:0;padding:0}
-            body{font-family:'Segoe UI',Arial,sans-serif;padding:36px;color:#1e293b;font-size:14px}
-            .logo{font-size:22px;font-weight:800;color:#2563eb}
-            .meta{font-size:12px;color:#64748b;margin-top:3px}
-            .divider{border:none;border-top:2px solid #e2e8f0;margin:18px 0}
-            .grid2{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:18px}
-            .lbl{font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px}
-            .val{font-size:14px;font-weight:600;color:#1e293b}
-            table{width:100%;border-collapse:collapse;margin:16px 0}
-            th{background:#f8fafc;padding:9px 12px;text-align:left;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.4px;border:1px solid #e2e8f0}
-            td{padding:10px 12px;border:1px solid #e2e8f0;font-size:13px}
-            .total-row td{background:#eff6ff;font-weight:800;font-size:15px;color:#2563eb}
-            .footer{margin-top:28px;font-size:11px;color:#94a3b8;text-align:center;border-top:1px solid #e2e8f0;padding-top:12px}
-        </style></head><body>${content.innerHTML}</body></html>`);
-        w.document.close();
-        w.print();
-    };
-
-    const reset = () => {
-        setStage('idle');
-        setRental(null);
-        setScannedId('');
-        setErrMsg('');
+    const startOver = () => {
+        setStage('scan');
         setResult(null);
-        setSaving(false);
-        setReturnDate(today());
-        setLateFee(0);
-        setDamageCharges(0);
-        setDamageNotes('');
-        setPaymentMethod('Cash');
-        setPaymentStatus('Pending');
     };
-
-    const originalTotal = rental?.totalAmount || 0;
-    const grandTotal = originalTotal + lateFee + damageCharges;
-    const lateDays = rental ? daysBetween(rental.dueDate, returnDate) : 0;
 
     return (
-        <div style={s.container}>
-            <div style={s.pageHeader}>
+        <>
+            <div className="page-header">
                 <div>
-                    <h2 style={s.pageTitle}>⬅️ QR Scan → Return Instrument</h2>
-                    <p style={s.pageSub}>
-                        Scan an instrument's QR code to process its return, calculate late fees, and update inventory
-                    </p>
+                    <h1>QR return</h1>
+                    <p className="page-header__subtitle">Scan an item to process its rental return.</p>
                 </div>
-                <button onClick={() => navigate('/admin/products')} style={s.ghostBtn}>
-                    View Rentals
-                </button>
+                {stage !== 'scan' && (
+                    <button type="button" className="btn" onClick={startOver}>
+                        ← Scan another
+                    </button>
+                )}
             </div>
-            {stage === 'idle' && (
-                <div style={s.card}>
-                    <div style={s.cardCentered}>
-                        <div style={s.iconLarge}>📥</div>
-                        <h3 style={s.idleTitle}>Scan QR to Return</h3>
-                        <p style={s.idleText}>
-                            When a client returns an instrument, scan its QR code to auto-retrieve rental details,
-                            calculate late fees/damage charges, and mark it as returned.
-                        </p>
-                        {errMsg && <p style={{ ...s.err, marginBottom: 16 }}>{errMsg}</p>}
-                        <button onClick={() => setStage('scanning')} style={s.primaryBtn}>
-                            📷 Open Webcam Scanner
-                        </button>
-                        <p style={s.tipText}>
-                            💡 Point your webcam at the instrument's QR code sticker or digital QR on screen
-                        </p>
-                    </div>
-                </div>
-            )}
-            {stage === 'not_found' && (
-                <div style={s.card}>
-                    <div style={s.cardCentered}>
-                        <div style={s.iconLarge}>❓</div>
-                        <h3 style={s.notFoundTitle}>QR Code Not Recognised</h3>
-                        <p style={s.notFoundText}>No inventory item matched:</p>
-                        <code style={s.code}>{scannedId}</code>
-                        <div style={s.btnRow}>
-                            <button onClick={() => setStage('scanning')} style={s.primaryBtn}>Scan Again</button>
-                            <button onClick={reset} style={s.ghostBtn}>Reset</button>
-                        </div>
-                    </div>
-                </div>
-            )}
-            {stage === 'not_rented' && (
-                <div style={s.card}>
-                    <div style={s.notRentedPadding}>
-                        <div style={s.iconLarge}>🟢</div>
-                        <h3 style={s.notFoundTitle}>Instrument is Not Currently Rented</h3>
-                        <p style={s.notRentedText}>
-                            This instrument has no active rental record. It may already be available.
-                        </p>
-                        <div style={s.btnRow}>
-                            <button onClick={() => setStage('scanning')} style={s.primaryBtn}>Scan Another</button>
-                            <button onClick={reset} style={s.ghostBtn}>Reset</button>
-                        </div>
-                    </div>
-                </div>
-            )}
-            {stage === 'found' && rental && (
-                <div style={s.card}>
-                    <div style={s.stepLabel}>✅ Active Rental Found</div>
-                    <div style={s.infoBox}>
-                        <div style={s.detailGrid}>
-                            <div>
-                                <div style={s.label}>Instrument</div>
-                                <div style={s.value}>{rental.items[0]?.itemId?.itemName || 'N/A'}</div>
-                            </div>
-                            <div>
-                                <div style={s.label}>Serial Number</div>
-                                <div style={s.value}>{rental.items[0]?.itemId?.serialNumber || 'N/A'}</div>
-                            </div>
-                            <div>
-                                <div style={s.label}>Brand / Model</div>
-                                <div style={s.value}>
-                                    {[rental.items[0]?.itemId?.brand, rental.items[0]?.itemId?.itemModel].filter(Boolean).join(' / ') || 'N/A'}
-                                </div>
-                            </div>
-                            <div>
-                                <div style={s.label}>Rental ID</div>
-                                <div style={s.value}>{rental.rentalId}</div>
-                            </div>
-                            <div>
-                                <div style={s.label}>Customer</div>
-                                <div style={s.value}>
-                                    {rental.customer.firstName} {rental.customer.lastName}
-                                </div>
-                            </div>
-                            <div>
-                                <div style={s.label}>Phone</div>
-                                <div style={s.value}>{rental.customer.phone}</div>
-                            </div>
-                        </div>
-                    </div>
-                    <div style={s.infoBox}>
-                        <div style={s.periodGrid}>
-                            <div>
-                                <div style={s.label}>Rental Date</div>
-                                <div style={s.value}>{fmtDate(rental.rentalDate)}</div>
-                            </div>
-                            <div>
-                                <div style={s.label}>Due Date</div>
-                                <div style={s.value}>{fmtDate(rental.dueDate)}</div>
-                            </div>
-                            <div>
-                                <div style={s.label}>Original Amount</div>
-                                <div style={s.value}>{currency(rental.totalAmount)}</div>
-                            </div>
-                        </div>
-                    </div>
-                    <div style={{ marginTop: 20 }}>
-                        <h4 style={s.sectionTitle}>Process Return</h4>
-                        <p style={s.sectionSub}>
-                            Fill in the return details below. Late fees are auto-calculated.
-                        </p>
 
-                        <div style={s.formGrid}>
-                            <div>
-                                <label style={s.label}>Return Date *</label>
-                                <input
-                                    type="date"
-                                    style={s.input}
-                                    value={returnDate}
-                                    max={today()}
-                                    onChange={e => setReturnDate(e.target.value)}
-                                />
-                            </div>
-                            <div>
-                                <label style={s.label}>Payment Method</label>
-                                <select
-                                    style={s.select}
-                                    value={paymentMethod}
-                                    onChange={e => setPaymentMethod(e.target.value as PayMethod)}
-                                >
-                                    <option>Cash</option>
-                                    <option>Card</option>
-                                    <option>Transfer</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label style={s.label}>Payment Status</label>
-                                <select
-                                    style={s.select}
-                                    value={paymentStatus}
-                                    onChange={e => setPaymentStatus(e.target.value as PayStatus)}
-                                >
-                                    <option>Pending</option>
-                                    <option>Paid</option>
-                                    <option>Partial</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label style={s.label}>Original Rental Amount</label>
-                                <div style={{ ...s.input, ...s.inputDisabled }}>
-                                    {currency(originalTotal)}
-                                </div>
-                            </div>
+            {stage === 'scan' && (
+                <div className="card" style={{ maxWidth: 520 }}>
+                    {notFoundMessage && (
+                        <div className="alert alert--warning mb-4" role="alert">
+                            {notFoundMessage}
                         </div>
-                        {lateFee > 0 && (
-                            <div style={s.warningBox}>
-                                <div style={s.warningTitle}>⏰ Late Return Detected</div>
-                                <div style={s.row}>
-                                    <span>Late by {lateDays} day{lateDays > 1 ? 's' : ''} × Rs. {rental.items[0]?.itemId?.baseRentalPrice || 0}/day</span>
-                                    <strong style={s.lateFeeText}>+ {currency(lateFee)}</strong>
-                                </div>
-                                <label style={{ ...s.label, marginBottom: 4, marginTop: 8 }}>Late Fee (adjustable)</label>
-                                <input
-                                    type="number"
-                                    min={0}
-                                    style={s.narrowInput}
-                                    value={lateFee}
-                                    onChange={e => setLateFee(Number(e.target.value))}
-                                />
-                            </div>
-                        )}
-                        <div style={s.infoBox}>
-                            <div style={s.infoTitle}>🔧 Damage Assessment</div>
-                            <div style={s.formGrid}>
-                                <div>
-                                    <label style={s.label}>Damage Charge (Rs.)</label>
-                                    <input
-                                        type="number"
-                                        min={0}
-                                        style={s.input}
-                                        value={damageCharges === 0 ? '' : damageCharges}
-                                        placeholder="0"
-                                        onChange={e => setDamageCharges(e.target.value === '' ? 0 : Number(e.target.value))}
-                                    />
-                                </div>
-                                <div style={s.fullWidth}>
-                                    <label style={s.label}>Damage Notes</label>
-                                    <textarea
-                                        style={s.textarea}
-                                        value={damageNotes}
-                                        placeholder="Describe any damage to the instrument (optional)"
-                                        onChange={e => setDamageNotes(e.target.value)}
-                                    />
-                                </div>
-                            </div>
+                    )}
+                    {looking ? (
+                        <div className="stack" aria-busy="true">
+                            <span className="spinner" aria-hidden="true" /> Looking up rental…
                         </div>
-                        <div style={s.costBox}>
-                            <div style={s.costTitle}>💰 Final Bill Summary</div>
-                            <div style={s.row}>
-                                <span>Original Rental Amount</span>
-                                <strong>{currency(originalTotal)}</strong>
-                            </div>
-                            {lateFee > 0 && (
-                                <div style={s.row}>
-                                    <span>Late Fee</span>
-                                    <strong style={s.lateFeeText}>+ {currency(lateFee)}</strong>
-                                </div>
-                            )}
-                            {damageCharges > 0 && (
-                                <div style={s.row}>
-                                    <span>Damage Charges</span>
-                                    <strong style={s.damageText}>+ {currency(damageCharges)}</strong>
-                                </div>
-                            )}
-                            <div style={s.totalRow}>
-                                <span>Total to Pay</span>
-                                <span>{currency(grandTotal)}</span>
-                            </div>
-                        </div>
-                        {errMsg && <p style={{ ...s.err, ...s.errMargin }}>{errMsg}</p>}
-                        <div style={s.btnRow}>
-                            <button
-                                onClick={handleProcessReturn}
-                                style={s.primaryBtn}
-                                disabled={saving || !returnDate}
-                            >
-                                {saving ? 'Processing…' : '✅ Mark as Returned'}
-                            </button>
-                            <button onClick={() => setStage('scanning')} style={s.ghostBtn}>Scan Again</button>
-                            <button onClick={reset} style={s.ghostBtn}>Reset</button>
-                        </div>
-                    </div>
+                    ) : (
+                        <QRScanner onScan={handleScan} />
+                    )}
                 </div>
             )}
-            {stage === 'done' && result && (
-                <div style={s.card}>
-                    <div ref={printRef}>
-                        <div style={s.stepLabel}>✅ Return Processed Successfully</div>
-                        <div style={s.receiptHeader}>
+
+            {stage === 'review' && rental && (
+                <div className="stack">
+                    <div className="card">
+                        <div className="row row--between">
                             <div>
-                                <div style={s.printHeader}>🎵 ELVI Music Studio</div>
-                                <div style={s.printMeta}>
-                                    <strong>Rental:</strong> {result.rentalId}
-                                </div>
-                                <div style={s.printMeta}>
-                                    <strong>Return Date:</strong> {fmtDate(result.returnDate)}
-                                </div>
+                                <h2>{rental.rentalId}</h2>
+                                <p className="muted">
+                                    {rental.customer.firstName} {rental.customer.lastName} · {rental.customer.phone}
+                                </p>
                             </div>
-                            <div style={s.printCustomer}>
-                                <div style={s.printCustomerName}>{result.customer.firstName} {result.customer.lastName}</div>
-                                <div style={s.printCustomerDetail}>{result.customer.phone}</div>
+                            <StatusBadge status={rental.status} />
+                        </div>
+                        <div className="info-list mt-4">
+                            <div className="info-list__row">
+                                <span className="info-list__label">Rented</span>
+                                <span className="info-list__value">{formatDate(rental.rentalDate)}</span>
+                            </div>
+                            <div className="info-list__row">
+                                <span className="info-list__label">Due</span>
+                                <span className="info-list__value">{formatDate(rental.dueDate)}</span>
+                            </div>
+                            <div className="info-list__row">
+                                <span className="info-list__label">Base amount</span>
+                                <span className="info-list__value">{currency(rental.baseAmount)}</span>
                             </div>
                         </div>
-                        <div style={s.successBox}>
-                            <div style={s.detailGrid}>
-                                <div>
-                                    <div style={s.label}>Instrument</div>
-                                    <div style={s.value}>{result.items[0]?.itemId?.itemName || 'N/A'}</div>
-                                </div>
-                                <div>
-                                    <div style={s.label}>Serial No.</div>
-                                    <div style={s.value}>{result.items[0]?.itemId?.serialNumber || 'N/A'}</div>
-                                </div>
-                                <div>
-                                    <div style={s.label}>Rental Date</div>
-                                    <div style={s.value}>{fmtDate(result.rentalDate)}</div>
-                                </div>
-                                <div>
-                                    <div style={s.label}>Returned On</div>
-                                    <div style={s.value}>{fmtDate(result.returnDate)}</div>
-                                </div>
-                            </div>
-                        </div>
-                        <div style={{ marginTop: 16 }}>
-                            <table style={s.printTable}>
+                    </div>
+
+                    <div className="card">
+                        <h3 className="mb-4">Items and damage</h3>
+                        <div className="table-wrap">
+                            <table className="table table--stack">
                                 <thead>
                                     <tr>
-                                        <th style={s.printTh}>Description</th>
-                                        <th style={s.printThRight}>Amount</th>
+                                        <th scope="col">Item</th>
+                                        <th scope="col">Damaged?</th>
+                                        <th scope="col">Charge (Rs.)</th>
+                                        <th scope="col">Note</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <tr>
-                                        <td style={s.printTd}>Original Rental</td>
-                                        <td style={s.printTdRight}>{currency(originalTotal)}</td>
-                                    </tr>
-                                    {result.lateFee > 0 && (
-                                        <tr>
-                                            <td style={{ ...s.printTd, color: '#dc2626' }}>Late Fee</td>
-                                            <td style={{ ...s.printTdRight, color: '#dc2626' }}>+ {currency(result.lateFee)}</td>
-                                        </tr>
-                                    )}
-                                    {result.damageCharges > 0 && (
-                                        <tr>
-                                            <td style={{ ...s.printTd, color: '#ea580c' }}>
-                                                Damage Charges {result.damageNotes ? `(${result.damageNotes})` : ''}
-                                            </td>
-                                            <td style={{ ...s.printTdRight, color: '#ea580c' }}>+ {currency(result.damageCharges)}</td>
-                                        </tr>
-                                    )}
-                                    <tr style={s.printTotalRow}>
-                                        <td style={s.printTotalLabel}>TOTAL PAID</td>
-                                        <td style={s.printTotalValue}>{currency(result.totalAmount)}</td>
-                                    </tr>
+                                    {rental.items.map(item => {
+                                        const info = typeof item.itemId === 'string' ? null : item.itemId;
+                                        const entry = damages.find(
+                                            d => d.itemId === (info ? info._id : String(item.itemId))
+                                        );
+                                        if (!entry) return null;
+                                        return (
+                                            <tr key={entry.itemId}>
+                                                <td data-label="Item">
+                                                    <strong>{info?.itemName ?? 'Item'}</strong>
+                                                    <div className="faint text-sm mono">{info?.serialNumber}</div>
+                                                </td>
+                                                <td data-label="Damaged?">
+                                                    <label className="row" style={{ gap: 6 }}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={entry.damaged}
+                                                            onChange={e =>
+                                                                updateDamage(entry.itemId, { damaged: e.target.checked })
+                                                            }
+                                                        />
+                                                        <span className="sr-only">Mark {info?.itemName} as damaged</span>
+                                                    </label>
+                                                </td>
+                                                <td data-label="Charge">
+                                                    <input
+                                                        className="input"
+                                                        type="number"
+                                                        min={0}
+                                                        step="0.01"
+                                                        style={{ width: 120 }}
+                                                        value={entry.charge}
+                                                        disabled={!entry.damaged}
+                                                        onChange={e => updateDamage(entry.itemId, { charge: e.target.value })}
+                                                        aria-label={`Damage charge for ${info?.itemName}`}
+                                                    />
+                                                </td>
+                                                <td data-label="Note">
+                                                    <input
+                                                        className="input"
+                                                        value={entry.note}
+                                                        disabled={!entry.damaged}
+                                                        onChange={e => updateDamage(entry.itemId, { note: e.target.value })}
+                                                        placeholder="e.g. cracked casing"
+                                                        aria-label={`Damage note for ${info?.itemName}`}
+                                                    />
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         </div>
-                        <div style={s.printFooterRow}>
-                            <span>Payment: <strong>{result.paymentStatus}</strong></span>
-                            <span>Method: <strong>{paymentMethod}</strong></span>
+                    </div>
+
+                    <div className="card">
+                        <div className="form-grid">
+                            <Field label="Return date" htmlFor="returnDate" required>
+                                <input
+                                    id="returnDate"
+                                    className="input"
+                                    type="date"
+                                    value={returnDate}
+                                    onChange={e => setReturnDate(e.target.value)}
+                                    required
+                                />
+                            </Field>
+
+                            <Field label="Payment status" htmlFor="paymentStatus">
+                                <select
+                                    id="paymentStatus"
+                                    className="select"
+                                    value={paymentStatus}
+                                    onChange={e => setPaymentStatus(e.target.value as typeof paymentStatus)}
+                                >
+                                    <option value="Paid">Paid</option>
+                                    <option value="Pending">Pending</option>
+                                    <option value="Partial">Partial</option>
+                                </select>
+                            </Field>
                         </div>
 
-                        <div style={s.printFooter}>
-                            Thank you for returning the instrument to ELVI Music Studio
+                        <div className="mt-4">
+                            <label className="row" style={{ gap: 6 }}>
+                                <input
+                                    type="checkbox"
+                                    checked={useOverride}
+                                    onChange={e => setUseOverride(e.target.checked)}
+                                />
+                                <span>
+                                    Override late fee (calculated: {currency(computedLateFee)} for {computedLateDays} day
+                                    {computedLateDays === 1 ? '' : 's'})
+                                </span>
+                            </label>
+                            {useOverride && (
+                                <input
+                                    className="input mt-4"
+                                    type="number"
+                                    min={0}
+                                    step="0.01"
+                                    style={{ maxWidth: 200 }}
+                                    value={lateFeeOverride}
+                                    onChange={e => setLateFeeOverride(e.target.value)}
+                                    aria-label="Override late fee amount"
+                                />
+                            )}
+                        </div>
+
+                        <div className="mt-4">
+                            <Field label="Notes" htmlFor="return-notes">
+                                <textarea
+                                    id="return-notes"
+                                    className="textarea"
+                                    value={notes}
+                                    onChange={e => setNotes(e.target.value)}
+                                />
+                            </Field>
                         </div>
                     </div>
-                    {errMsg && <p style={{ ...s.err, ...s.errMargin }}>{errMsg}</p>}
-                    <div style={s.btnRow}>
-                        <button onClick={handlePrint} style={s.primaryBtn}>🖨 Print Receipt</button>
-                        <button onClick={reset} style={s.ghostBtn}>📷 Return Another</button>
-                        <button onClick={() => navigate('/admin/products')} style={s.ghostBtn}>View Rentals</button>
+
+                    <div className="card" aria-live="polite">
+                        <div className="row row--between">
+                            <span className="muted">Base amount</span>
+                            <span className="num">{currency(rental.baseAmount)}</span>
+                        </div>
+                        <div className="row row--between">
+                            <span className="muted">Late fee</span>
+                            <span className="num">{currency(effectiveLateFee)}</span>
+                        </div>
+                        <div className="row row--between">
+                            <span className="muted">Damage charges</span>
+                            <span className="num">{currency(damageTotal)}</span>
+                        </div>
+                        <div className="row row--between mt-4">
+                            <strong>Total due</strong>
+                            <span className="stat__value">{currency(projectedTotal)}</span>
+                        </div>
+                    </div>
+
+                    <div className="btn-group" style={{ justifyContent: 'flex-end' }}>
+                        <button type="button" className="btn" onClick={startOver} disabled={saving}>
+                            Cancel
+                        </button>
+                        <button type="button" className="btn btn--primary" onClick={handleSubmit} disabled={saving}>
+                            {saving && <span className="spinner" aria-hidden="true" />}
+                            Complete return
+                        </button>
                     </div>
                 </div>
             )}
-            {stage === 'scanning' && (
-                <QRScanner
-                    onScanSuccess={handleScan}
-                    onClose={() => setStage(rental ? 'found' : 'idle')}
-                />
+
+            {stage === 'done' && result && (
+                <div className="card" style={{ maxWidth: 520 }}>
+                    <div className="row row--between">
+                        <h2>Return complete</h2>
+                        <StatusBadge status={result.status} />
+                    </div>
+                    <p className="muted mt-4">{result.rentalId} has been returned.</p>
+                    <div className="info-list mt-4">
+                        <div className="info-list__row">
+                            <span className="info-list__label">Late fee</span>
+                            <span className="info-list__value">{currency(result.lateFee)}</span>
+                        </div>
+                        <div className="info-list__row">
+                            <span className="info-list__label">Damage charges</span>
+                            <span className="info-list__value">{currency(result.damageCharges)}</span>
+                        </div>
+                        <div className="info-list__row">
+                            <span className="info-list__label">Total charged</span>
+                            <span className="info-list__value">{currency(result.totalAmount)}</span>
+                        </div>
+                        <div className="info-list__row">
+                            <span className="info-list__label">Payment status</span>
+                            <span className="info-list__value">{result.paymentStatus}</span>
+                        </div>
+                    </div>
+                    <button type="button" className="btn btn--primary btn--block mt-5" onClick={startOver}>
+                        Process another return
+                    </button>
+                </div>
             )}
-        </div>
+
+            {stage === 'review' && !rental && (
+                <EmptyState icon="↩️" title="Nothing to review" hint="Scan an item to start a return." />
+            )}
+        </>
     );
 };
 

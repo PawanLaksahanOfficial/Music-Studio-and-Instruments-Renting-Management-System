@@ -1,0 +1,167 @@
+/* Reset and global element defaults. */
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+    height: 100%;
+}
+
+body {
+    margin: 0;
+    font-family: var(--font-sans);
+    font-size: var(--fs-base);
+    line-height: 1.5;
+    color: var(--c-text);
+    background: var(--c-bg);
+    -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+h4,
+p {
+    margin: 0;
+}
+
+h1 {
+    font-size: var(--fs-xl);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+h2 {
+    font-size: var(--fs-lg);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+}
+
+h3 {
+    font-size: var(--fs-md);
+    font-weight: 600;
+}
+
+a {
+    color: var(--c-accent);
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+img {
+    max-width: 100%;
+    display: block;
+}
+
+/**
+ * A visible focus ring on every interactive element. The previous inline-style
+ * approach could not express :focus-visible at all, which left the app
+ * unusable by keyboard.
+ */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+    outline: 2px solid var(--c-accent);
+    outline-offset: 2px;
+    border-radius: var(--r-sm);
+}
+
+button {
+    font: inherit;
+    cursor: pointer;
+}
+
+button:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+}
+
+input,
+select,
+textarea {
+    font: inherit;
+    color: inherit;
+}
+
+/* Respect a reduced-motion preference rather than animating regardless. */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+/* Visible only to screen readers. */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Keyboard users can jump straight past the sidebar to the content. */
+.skip-link {
+    position: absolute;
+    top: -100px;
+    left: var(--sp-3);
+    z-index: 100;
+    padding: var(--sp-2) var(--sp-4);
+    color: var(--c-text-inverse);
+    background: var(--c-accent);
+    border-radius: var(--r-sm);
+    transition: top var(--transition);
+}
+
+.skip-link:focus {
+    top: var(--sp-3);
+}
+
+/**
+ * Print rules for invoices and receipts. The app has a print/PDF feature but
+ * previously had no print stylesheet, so pages printed with the full chrome.
+ */
+@media print {
+    .admin-sidebar,
+    .admin-header,
+    .admin-footer,
+    .no-print {
+        display: none !important;
+    }
+
+    body {
+        background: #fff;
+        color: #000;
+    }
+
+    .admin-main,
+    .admin-content {
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+
+    .card,
+    .table-wrap {
+        border: 1px solid #ccc !important;
+        box-shadow: none !important;
+        break-inside: avoid;
+    }
+
+    a[href]::after {
+        content: '';
+    }
+}

@@ -1,388 +1,503 @@
-import React, { useContext, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { StyleContext } from '../context/StyleContext';
+import { useState, type FormEvent } from 'react';
+import toast from 'react-hot-toast';
 import { inventoryAPI } from '../services/api';
-import Inventory from '../types/Inventory';
-import DeleteConfirmation from '../components/DeleteConfirmation';
-import ArchiveConfirmation from '../components/ArchiveConfirmation';
+import { ApiError, errorMessage } from '../services/httpClient';
+import { usePagedQuery } from '../hooks/usePagedQuery';
 import { useAuth } from '../context/AuthContext';
-import { AdminPanelStyles } from '../styles/AdminPanelStyles';
-import { InventoryPageStyles } from '../styles/InventoryPageStyles';
-import { ModalStyles, FormStyles } from '../styles/AllStyles';
-import { StatusBadge } from '../styles/DesignTokens';
+import Modal from '../components/Modal';
+import ConfirmDialog from '../components/ConfirmDialog';
+import { QRCode } from '../components/QRCode';
+import { downloadQRCode } from '../utils/qrDownload';
+import { EmptyState, ErrorState, Field, PageHeader, Pagination, StatusBadge, TableSkeleton } from '../components/ui';
+import { currency, toDateInput } from '../utils/format';
+import type { InventoryCategory, InventoryItem, InventoryStatus } from '../types/api';
 
-const CATEGORIES = ['Instruments', 'Audio Gear', 'Cables', 'Other'];
-const STATUSES   = ['Available', 'Rented', 'Maintenance', 'Damaged', 'Lost'];
+const CATEGORIES: InventoryCategory[] = ['Instruments', 'Audio Gear', 'Cables', 'Other'];
+const STATUSES: InventoryStatus[] = ['Available', 'Rented', 'Maintenance', 'Damaged', 'Lost'];
 
-type Category = typeof CATEGORIES[number];
-type Status = typeof STATUSES[number];
-
-interface InventoryForm {
+interface FormState {
     itemName: string;
-    category: Category;
+    category: InventoryCategory;
     brand: string;
-    model: string;
+    itemModel: string;
     serialNumber: string;
-    status: Status;
-    baseRentalPrice: number;
+    status: InventoryStatus;
+    baseRentalPrice: string;
     purchaseDate: string;
     notes: string;
 }
 
-const emptyForm: InventoryForm = {
+const EMPTY: FormState = {
     itemName: '',
-    category: 'Instruments', 
-    brand: '', 
-    model: '',
-    serialNumber: '', 
-    status: 'Available', 
-    baseRentalPrice: 0, 
+    category: 'Instruments',
+    brand: '',
+    itemModel: '',
+    serialNumber: '',
+    status: 'Available',
+    baseRentalPrice: '',
     purchaseDate: '',
     notes: '',
 };
 
-const statusStyle = (s: string) => {
-    const map: Record<string, React.CSSProperties> = {
-        Available: StatusBadge.available, Rented: StatusBadge.rented,
-        Maintenance: StatusBadge.maintenance, Damaged: StatusBadge.damaged, Lost: StatusBadge.lost,
-    };
-    return map[s] || StatusBadge.lost;
-};
+/** The QR encodes only the id — item details are looked up from the server. */
+const qrPayload = (item: InventoryItem) => item.qrCodeId;
 
-const buildQRPayload = (item: Inventory) =>
-    `${item.qrCodeId}|${item.itemName}|${item.serialNumber}|${item.baseRentalPrice}`;
-
-const InventoryPage: React.FC = () => {
-    const navigate = useNavigate();
-    const { getComponentStyle } = useContext(StyleContext);
-    const styles = getComponentStyle('inventory') as typeof InventoryPageStyles;
+const InventoryPage = () => {
     const { isAdmin } = useAuth();
-    const [items, setItems] = useState<Inventory[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [search, setSearch] = useState('');
-    const [filterStatus, setFilterStatus] = useState('All');
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [selectedItem, setSelectedItem] = useState<Inventory | null>(null);
-    const [formData, setFormData] = useState<InventoryForm>({ ...emptyForm });
-    const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-    const [toDelete, setToDelete] = useState<Inventory | null>(null);
-    const [isArchiveOpen, setIsArchiveOpen] = useState(false);
-    const [toArchive, setToArchive] = useState<Inventory | null>(null);
-    const [qrItem, setQrItem] = useState<Inventory | null>(null);
-    const [qrSize, setQrSize] = useState(220);
+    const query = usePagedQuery<InventoryItem>(params => inventoryAPI.getAll(params));
 
-    const fetchItems = async () => {
-        setLoading(true);
-        try { 
-            const r = await inventoryAPI.getAll(); 
-            setItems(r.data); 
-        }
-        catch (e) { 
-            console.error(e); 
-        }
-        finally { 
-            setLoading(false); 
-        }
+    const [editing, setEditing] = useState<InventoryItem | null>(null);
+    const [formOpen, setFormOpen] = useState(false);
+    const [form, setForm] = useState<FormState>(EMPTY);
+    const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+    const [saving, setSaving] = useState(false);
+    const [qrItem, setQrItem] = useState<InventoryItem | null>(null);
+    const [toArchive, setToArchive] = useState<InventoryItem | null>(null);
+    const [toDelete, setToDelete] = useState<InventoryItem | null>(null);
+
+    const openCreate = () => {
+        setEditing(null);
+        setForm(EMPTY);
+        setFieldErrors({});
+        setFormOpen(true);
     };
 
-    useEffect(() => {
-         fetchItems(); 
-    }, []);
-
-    const openAdd = () => { 
-        setSelectedItem(null); 
-        setFormData({ ...emptyForm }); 
-        setIsModalOpen(true); 
-    };
-
-    const openEdit = (item: Inventory) => {
-        setSelectedItem(item);
-        setFormData({
-            itemName: item.itemName, category: item.category, brand: item.brand || '',
-            model: item.model || '', serialNumber: item.serialNumber, status: item.status,
-            baseRentalPrice: item.baseRentalPrice,
-            purchaseDate: item.purchaseDate ? item.purchaseDate.split('T')[0] : '',
-            notes: item.notes || '',
+    const openEdit = (item: InventoryItem) => {
+        setEditing(item);
+        setForm({
+            itemName: item.itemName,
+            category: item.category,
+            brand: item.brand ?? '',
+            itemModel: item.itemModel ?? '',
+            serialNumber: item.serialNumber,
+            status: item.status,
+            baseRentalPrice: String(item.baseRentalPrice),
+            purchaseDate: toDateInput(item.purchaseDate),
+            notes: item.notes ?? '',
         });
-        setIsModalOpen(true);
+        setFieldErrors({});
+        setFormOpen(true);
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
+        setSaving(true);
+        setFieldErrors({});
+
+        const payload = {
+            itemName: form.itemName,
+            category: form.category,
+            brand: form.brand || undefined,
+            itemModel: form.itemModel || undefined,
+            status: form.status,
+            baseRentalPrice: Number(form.baseRentalPrice),
+            purchaseDate: form.purchaseDate || undefined,
+            notes: form.notes || undefined,
+        };
+
         try {
-            if (selectedItem) { await inventoryAPI.update(selectedItem._id, formData); }
-            else { await inventoryAPI.create(formData); }
-            fetchItems();
-            setIsModalOpen(false);
+            if (editing) {
+                await inventoryAPI.update(editing._id, payload);
+                toast.success(`${form.itemName} updated`);
+            } else {
+                await inventoryAPI.create({ ...payload, serialNumber: form.serialNumber });
+                toast.success(`${form.itemName} added`);
+            }
+            setFormOpen(false);
+            query.refresh();
         } catch (err) {
-            const e = err as { response?: { data?: { message?: string } } };
-            alert(e.response?.data?.message || 'Action failed');
+            // Field-level messages land next to their input; anything else
+            // becomes a toast so it cannot be missed.
+            if (err instanceof ApiError && err.details?.length) {
+                setFieldErrors(err.fieldErrors);
+            } else {
+                toast.error(errorMessage(err));
+            }
+        } finally {
+            setSaving(false);
         }
     };
 
-    const confirmDelete = async () => {
-        if (!toDelete) return;
-        try { 
-            await inventoryAPI.delete(toDelete._id); 
-            fetchItems(); 
-            setIsDeleteOpen(false); 
-        }
-        catch { 
-            alert('Delete failed'); 
-        }
-    };
-
-    const confirmArchive = async () => {
-        if (!toArchive) return;
-        try { 
-            await inventoryAPI.archive(toArchive._id); 
-            fetchItems(); 
-            setIsArchiveOpen(false); 
-        }
-        catch { 
-            alert('Archive failed'); 
+    const runAction = async (fn: () => Promise<unknown>, successMessage: string, done: () => void) => {
+        try {
+            await fn();
+            toast.success(successMessage);
+            query.refresh();
+        } catch (err) {
+            toast.error(errorMessage(err));
+        } finally {
+            done();
         }
     };
-
-    const filtered = items.filter(i => {
-        const q = search.toLowerCase();
-        return (i.itemName.toLowerCase().includes(q) ||
-                i.serialNumber.toLowerCase().includes(q) ||
-                (i.brand || '').toLowerCase().includes(q)) &&
-               (filterStatus === 'All' || i.status === filterStatus);
-    });
-
-    const openQR = (item: Inventory) => { 
-        setQrItem(item); 
-        setQrSize(220); 
-    };
-
-    const scanNow = (item: Inventory) => {
-        navigate('/admin/scanner', { state: { prefillQR: item.qrCodeId } });
-    };
-
-    if (loading && items.length === 0) return <div style={styles.loading}>Loading inventory...</div>;
-
-    const qrPayload = qrItem ? encodeURIComponent(buildQRPayload(qrItem)) : '';
-    const qrSrc = qrItem ? `https://api.qrserver.com/v1/create-qr-code/?size=${qrSize}x${qrSize}&margin=1&data=${qrPayload}` : '';
 
     return (
-        <div style={styles.container}>
-            <div style={styles.header}>
-                <div style={styles.titleSection}>
-                    <h2 style={styles.title}>Inventory</h2>
-                    <p style={styles.subtitle}>{items.length} items total</p>
-                </div>
-                <button style={styles.actionButton} onClick={openAdd}>+ Add Item</button>
-            </div>
+        <>
+            <PageHeader
+                title="Inventory"
+                subtitle={query.meta ? `${query.meta.total} items` : 'Loading…'}
+                actions={
+                    isAdmin && (
+                        <button type="button" className="btn btn--primary" onClick={openCreate}>
+                            + Add item
+                        </button>
+                    )
+                }
+            />
 
-            <div style={styles.filterRow}>
-                <input placeholder="Search name, serial, brand…" value={search}
-                    onChange={e => setSearch(e.target.value)}
-                    style={styles.searchInput} />
-                <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
-                    style={styles.statusSelect}>
-                    <option value="All">All Statuses</option>
-                    {STATUSES.map(s => <option key={s}>{s}</option>)}
+            <div className="filter-bar">
+                <label className="sr-only" htmlFor="inventory-search">
+                    Search inventory
+                </label>
+                <input
+                    id="inventory-search"
+                    className="input"
+                    type="search"
+                    placeholder="Search name, serial, brand or model…"
+                    value={query.search}
+                    onChange={e => query.setSearch(e.target.value)}
+                />
+                <label className="sr-only" htmlFor="inventory-status">
+                    Filter by status
+                </label>
+                <select
+                    id="inventory-status"
+                    className="select"
+                    value={query.filters.status ?? 'All'}
+                    onChange={e => query.setFilter('status', e.target.value)}
+                >
+                    <option value="All">All statuses</option>
+                    {STATUSES.map(s => (
+                        <option key={s} value={s}>
+                            {s}
+                        </option>
+                    ))}
+                </select>
+                <label className="sr-only" htmlFor="inventory-category">
+                    Filter by category
+                </label>
+                <select
+                    id="inventory-category"
+                    className="select"
+                    value={query.filters.category ?? 'All'}
+                    onChange={e => query.setFilter('category', e.target.value)}
+                >
+                    <option value="All">All categories</option>
+                    {CATEGORIES.map(c => (
+                        <option key={c} value={c}>
+                            {c}
+                        </option>
+                    ))}
                 </select>
             </div>
 
-            <div style={styles.tableWrapper}>
-                <table style={styles.table}>
-                    <thead>
-                        <tr>
-                            {['Item Name','Category','Brand / Model','Serial #','Status','Daily Rate','Notes','Actions'].map(h => (
-                                <th key={h} style={styles.th}>{h}</th>
-                            ))}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {filtered.length > 0 ? filtered.map(item => (
-                            <tr key={item._id}
-                                onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#f8fafc')}
-                                onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}>
-                                <td style={{ ...styles.td, ...styles.tdBold }}>{item.itemName}</td>
-                                <td style={styles.td}>{item.category}</td>
-                                <td style={styles.td}>{[item.brand, item.model].filter(Boolean).join(' — ') || '—'}</td>
-                                <td style={{ ...styles.td, ...styles.tdMonospace }}>{item.serialNumber}</td>
-                                <td style={styles.td}><span style={statusStyle(item.status)}>{item.status}</span></td>
-                                <td style={styles.td}>Rs. {item.baseRentalPrice}/day</td>
-                                <td style={{ ...styles.td, ...styles.tdNotes }} title={item.notes}>
-                                    {item.notes || '—'}
-                                </td>
-                                <td style={styles.td}>
-                                    <div style={styles.actionGroup}>
-                                        <button onClick={() => openQR(item)}
-                                            style={styles.qrButton}>
-                                            🔲 QR
-                                        </button>
-                                        {item.status === 'Available' && (
-                                            <button onClick={() => scanNow(item)}
-                                                style={styles.scanButton}>
-                                                📷 Scan
-                                            </button>
-                                        )}
-                                        <button onClick={() => { setToArchive(item); setIsArchiveOpen(true); }}
-                                            style={styles.archiveButton}>
-                                            Archive
-                                        </button>
-                                        <button onClick={() => openEdit(item)}
-                                            style={styles.editButton}>
-                                            Edit
-                                        </button>
-                                        {isAdmin && (
-                                            <button onClick={() => { setToDelete(item); setIsDeleteOpen(true); }}
-                                                style={styles.deleteButton}>
-                                                Delete
-                                            </button>
-                                        )}
-                                    </div>
-                                </td>
-                            </tr>
-                        )) : (
-                            <tr><td colSpan={7} style={styles.noItems}>No items found.</td></tr>
-                        )}
-                    </tbody>
-                </table>
-            </div>
+            {query.error && <ErrorState message={query.error} onRetry={query.refresh} />}
 
-            {/* QR Modal */}
-            {qrItem && (
-                <div style={styles.overlay} onClick={() => setQrItem(null)}>
-                    <div style={styles.qrModalContent} onClick={e => e.stopPropagation()}>
-                        <div style={styles.qrModalTitleRow}>
-                            <h3 style={styles.qrModalTitle}>{qrItem.itemName}</h3>
-                            <button style={styles.qrModalCloseBtn} onClick={() => setQrItem(null)}>✕</button>
-                        </div>
-                        <div style={styles.itemInfoBox}>
-                            {[
-                                ['Category', qrItem.category],
-                                ['Brand', qrItem.brand || '—'],
-                                ['Serial #', qrItem.serialNumber],
-                                ['Daily Rate', `Rs. ${qrItem.baseRentalPrice}`],
-                                ['QR Code ID', qrItem.qrCodeId],
-                                ['Status', qrItem.status],
-                            ].map(([k, v]) => (
-                                <div key={k} style={styles.infoRow}>
-                                    <span style={styles.infoLabel}>{k}</span>
-                                    <span style={styles.infoValue}>{v}</span>
-                                </div>
-                            ))}
-                        </div>
-                        <div style={styles.qrImageWrapper}>
-                            <img src={qrSrc} alt="QR Code" width={qrSize} height={qrSize}
-                                style={styles.qrImage} />
-                        </div>
-                        <p style={styles.qrDescription}>
-                            This QR encodes the item ID, name, serial and daily rate.<br />
-                            Scan it in the QR Scanner page to auto-fill an invoice.
-                        </p>
-                        <div style={styles.sizeControl}>
-                            <label style={styles.sizeLabel}>QR Size: {qrSize}×{qrSize}px</label>
-                            <input type="range" min={120} max={400} step={20} value={qrSize}
-                                onChange={e => setQrSize(Number(e.target.value))}
-                                style={styles.sizeSlider} />
-                        </div>
-                        <div style={styles.qrActionGroup}>
-                            <a href={qrSrc} download={`QR_${qrItem.serialNumber}.png`} target="_blank" rel="noreferrer"
-                                style={styles.downloadBtn}>
-                                ⬇ Download QR
-                            </a>
-                            {qrItem.status === 'Available' && (
-                                <button onClick={() => { setQrItem(null); scanNow(qrItem); }}
-                                    style={styles.scanNowBtn}>
-                                    📷 Scan This Now
+            {query.loading && query.items.length === 0 ? (
+                <TableSkeleton cols={7} />
+            ) : query.items.length === 0 && !query.error ? (
+                <div className="table-wrap">
+                    <EmptyState
+                        icon="📦"
+                        title="No items found"
+                        hint={query.search ? 'Try a different search term.' : 'Add your first inventory item to get started.'}
+                        action={
+                            isAdmin && !query.search ? (
+                                <button type="button" className="btn btn--primary" onClick={openCreate}>
+                                    + Add item
                                 </button>
-                            )}
-                            <button style={FormStyles.cancelButton} onClick={() => setQrItem(null)}>Close</button>
-                        </div>
-                    </div>
+                            ) : undefined
+                        }
+                    />
+                </div>
+            ) : (
+                <div className="table-wrap">
+                    <table className="table table--stack">
+                        <thead>
+                            <tr>
+                                <th scope="col">Item</th>
+                                <th scope="col">Category</th>
+                                <th scope="col">Brand / model</th>
+                                <th scope="col">Serial</th>
+                                <th scope="col">Status</th>
+                                <th scope="col" className="table__num">
+                                    Daily rate
+                                </th>
+                                <th scope="col">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {query.items.map(item => (
+                                <tr key={item._id}>
+                                    <td data-label="Item">
+                                        <strong>{item.itemName}</strong>
+                                        {item.notes && <div className="faint text-sm table__truncate">{item.notes}</div>}
+                                    </td>
+                                    <td data-label="Category">{item.category}</td>
+                                    <td data-label="Brand / model">
+                                        {[item.brand, item.itemModel].filter(Boolean).join(' — ') || '—'}
+                                    </td>
+                                    <td data-label="Serial" className="table__mono">
+                                        {item.serialNumber}
+                                    </td>
+                                    <td data-label="Status">
+                                        <StatusBadge status={item.status} />
+                                    </td>
+                                    <td data-label="Daily rate" className="table__num">
+                                        {currency(item.baseRentalPrice)}
+                                    </td>
+                                    <td data-label="Actions">
+                                        <div className="btn-group">
+                                            <button type="button" className="btn btn--sm" onClick={() => setQrItem(item)}>
+                                                QR
+                                            </button>
+                                            {isAdmin && (
+                                                <>
+                                                    <button type="button" className="btn btn--sm" onClick={() => openEdit(item)}>
+                                                        Edit
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        className="btn btn--sm"
+                                                        onClick={() => setToArchive(item)}
+                                                    >
+                                                        Archive
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        className="btn btn--sm btn--danger"
+                                                        onClick={() => setToDelete(item)}
+                                                    >
+                                                        Delete
+                                                    </button>
+                                                </>
+                                            )}
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                    {query.meta && <Pagination meta={query.meta} onPageChange={query.setPage} />}
                 </div>
             )}
 
-            {isModalOpen && (
-                <div style={styles.overlay}>
-                    <div style={ModalStyles.content}>
-                        <div style={ModalStyles.titleRow}>
-                            <h3 style={ModalStyles.title}>{selectedItem ? 'Edit Item' : 'Add Inventory Item'}</h3>
-                            <button style={ModalStyles.closeBtn} onClick={() => setIsModalOpen(false)}>✕</button>
-                        </div>
-                        <form onSubmit={handleSubmit}>
-                            <div style={FormStyles.grid2}>
-                                <div style={styles.formGroup}>
-                                    <label style={styles.formLabel}>Item Name *</label>
-                                    <input style={FormStyles.input} value={formData.itemName} required
-                                        onChange={e => setFormData({ ...formData, itemName: e.target.value })} />
-                                </div>
-                                <div style={styles.formGroup}>
-                                    <label style={styles.formLabel}>Category *</label>
-                                    <select style={FormStyles.select} value={formData.category}
-                                        onChange={e => setFormData({ ...formData, category: e.target.value as InventoryForm['category'] })}>
-                                        {CATEGORIES.map(c => <option key={c}>{c}</option>)}
-                                    </select>
-                                </div>
-                                <div style={styles.formGroup}>
-                                    <label style={styles.formLabel}>Brand</label>
-                                    <input style={FormStyles.input} value={formData.brand}
-                                        onChange={e => setFormData({ ...formData, brand: e.target.value })} />
-                                </div>
-                                <div style={styles.formGroup}>
-                                    <label style={styles.formLabel}>Model</label>
-                                    <input style={FormStyles.input} value={formData.model}
-                                        onChange={e => setFormData({ ...formData, model: e.target.value })} />
-                                </div>
-                                <div style={styles.formGroup}>
-                                    <label style={styles.formLabel}>Serial Number *</label>
-                                    <input style={selectedItem ? { ...FormStyles.input, backgroundColor: '#f1f5f9', cursor: 'not-allowed' } : FormStyles.input} value={formData.serialNumber} required disabled={!!selectedItem}
-                                        onChange={e => setFormData({ ...formData, serialNumber: e.target.value })} />
-                                </div>
-                                <div style={styles.formGroup}>
-                                    <label style={styles.formLabel}>Daily Rental Price (Rs.) *</label>
-                                    <input type="number" style={FormStyles.input} value={formData.baseRentalPrice === 0 ? '' : formData.baseRentalPrice} required min={0}
-                                        onChange={e => setFormData({ ...formData, baseRentalPrice: e.target.value === '' ? 0 : Number(e.target.value) })} />
-                                </div>
-                                <div style={styles.formGroup}>
-                                    <label style={styles.formLabel}>Status</label>
-                                    <select style={FormStyles.select} value={formData.status}
-                                        onChange={e => setFormData({ ...formData, status: e.target.value as InventoryForm['status'] })}>
-                                        {STATUSES.map(s => <option key={s}>{s}</option>)}
-                                    </select>
-                                </div>
-                                <div style={styles.formGroup}>
-                                    <label style={styles.formLabel}>Purchase Date</label>
-                                    <input type="date" style={FormStyles.input} value={formData.purchaseDate}
-                                        onChange={e => setFormData({ ...formData, purchaseDate: e.target.value })} />
-                                </div>
-                                <div style={styles.fullWidthGroup}>
-                                    <label style={styles.formLabel}>Notes</label>
-                                    <textarea style={FormStyles.textarea} value={formData.notes}
-                                        onChange={e => setFormData({ ...formData, notes: e.target.value })} />
-                                </div>
-                            </div>
-                            <div style={FormStyles.buttonRow}>
-                                <button type="button" style={FormStyles.cancelButton} onClick={() => setIsModalOpen(false)}>Cancel</button>
-                                <button type="submit" style={FormStyles.submitButton}>{selectedItem ? 'Save Changes' : 'Add Item'}</button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
+            {/* ─── Create / edit ─── */}
+            <Modal
+                isOpen={formOpen}
+                onClose={() => setFormOpen(false)}
+                title={editing ? `Edit ${editing.itemName}` : 'Add inventory item'}
+                footer={
+                    <>
+                        <button type="button" className="btn" onClick={() => setFormOpen(false)} disabled={saving}>
+                            Cancel
+                        </button>
+                        <button type="submit" form="inventory-form" className="btn btn--primary" disabled={saving}>
+                            {saving && <span className="spinner" aria-hidden="true" />}
+                            {editing ? 'Save changes' : 'Add item'}
+                        </button>
+                    </>
+                }
+            >
+                <form id="inventory-form" onSubmit={handleSubmit} className="form-grid">
+                    <Field label="Item name" htmlFor="itemName" required error={fieldErrors.itemName}>
+                        <input
+                            id="itemName"
+                            className="input"
+                            value={form.itemName}
+                            onChange={e => setForm({ ...form, itemName: e.target.value })}
+                            required
+                        />
+                    </Field>
 
-            <ArchiveConfirmation
-                isOpen={isArchiveOpen}
-                onClose={() => setIsArchiveOpen(false)}
-                onConfirm={confirmArchive}
-                itemName={toArchive?.itemName || 'this item'}
+                    <Field label="Category" htmlFor="category" required error={fieldErrors.category}>
+                        <select
+                            id="category"
+                            className="select"
+                            value={form.category}
+                            onChange={e => setForm({ ...form, category: e.target.value as InventoryCategory })}
+                        >
+                            {CATEGORIES.map(c => (
+                                <option key={c} value={c}>
+                                    {c}
+                                </option>
+                            ))}
+                        </select>
+                    </Field>
+
+                    <Field label="Brand" htmlFor="brand" error={fieldErrors.brand}>
+                        <input
+                            id="brand"
+                            className="input"
+                            value={form.brand}
+                            onChange={e => setForm({ ...form, brand: e.target.value })}
+                        />
+                    </Field>
+
+                    <Field label="Model" htmlFor="itemModel" error={fieldErrors.itemModel}>
+                        <input
+                            id="itemModel"
+                            className="input"
+                            value={form.itemModel}
+                            onChange={e => setForm({ ...form, itemModel: e.target.value })}
+                        />
+                    </Field>
+
+                    <Field
+                        label="Serial number"
+                        htmlFor="serialNumber"
+                        required
+                        error={fieldErrors.serialNumber}
+                        hint={editing ? 'The serial identifies the physical unit and cannot be changed.' : undefined}
+                    >
+                        <input
+                            id="serialNumber"
+                            className="input"
+                            value={form.serialNumber}
+                            onChange={e => setForm({ ...form, serialNumber: e.target.value })}
+                            disabled={!!editing}
+                            required
+                        />
+                    </Field>
+
+                    <Field
+                        label="Daily rental price (Rs.)"
+                        htmlFor="baseRentalPrice"
+                        required
+                        error={fieldErrors.baseRentalPrice}
+                    >
+                        <input
+                            id="baseRentalPrice"
+                            className="input"
+                            type="number"
+                            min={0}
+                            step="0.01"
+                            value={form.baseRentalPrice}
+                            onChange={e => setForm({ ...form, baseRentalPrice: e.target.value })}
+                            required
+                        />
+                    </Field>
+
+                    <Field
+                        label="Status"
+                        htmlFor="status"
+                        error={fieldErrors.status}
+                        hint={editing?.status === 'Rented' ? 'Locked while the item is out on rental.' : undefined}
+                    >
+                        <select
+                            id="status"
+                            className="select"
+                            value={form.status}
+                            onChange={e => setForm({ ...form, status: e.target.value as InventoryStatus })}
+                            disabled={editing?.status === 'Rented'}
+                        >
+                            {STATUSES.map(s => (
+                                <option key={s} value={s}>
+                                    {s}
+                                </option>
+                            ))}
+                        </select>
+                    </Field>
+
+                    <Field label="Purchase date" htmlFor="purchaseDate" error={fieldErrors.purchaseDate}>
+                        <input
+                            id="purchaseDate"
+                            className="input"
+                            type="date"
+                            value={form.purchaseDate}
+                            onChange={e => setForm({ ...form, purchaseDate: e.target.value })}
+                        />
+                    </Field>
+
+                    <Field label="Notes" htmlFor="notes" full error={fieldErrors.notes}>
+                        <textarea
+                            id="notes"
+                            className="textarea"
+                            value={form.notes}
+                            onChange={e => setForm({ ...form, notes: e.target.value })}
+                        />
+                    </Field>
+                </form>
+            </Modal>
+
+            {/* ─── QR ─── */}
+            <Modal
+                isOpen={!!qrItem}
+                onClose={() => setQrItem(null)}
+                title={qrItem ? `QR code — ${qrItem.itemName}` : ''}
+                size="sm"
+                footer={
+                    <>
+                        <button type="button" className="btn" onClick={() => setQrItem(null)}>
+                            Close
+                        </button>
+                        <button
+                            type="button"
+                            className="btn btn--primary"
+                            onClick={() =>
+                                qrItem && void downloadQRCode(qrPayload(qrItem), `QR_${qrItem.serialNumber}`)
+                            }
+                        >
+                            Download PNG
+                        </button>
+                    </>
+                }
+            >
+                {qrItem && (
+                    <div className="stack">
+                        <QRCode value={qrPayload(qrItem)} label={`QR code for ${qrItem.itemName}`} />
+                        <div className="info-list">
+                            {[
+                                ['QR code ID', qrItem.qrCodeId],
+                                ['Serial', qrItem.serialNumber],
+                                ['Category', qrItem.category],
+                                ['Daily rate', currency(qrItem.baseRentalPrice)],
+                                ['Status', qrItem.status],
+                            ].map(([label, value]) => (
+                                <div key={label} className="info-list__row">
+                                    <span className="info-list__label">{label}</span>
+                                    <span className="info-list__value">{value}</span>
+                                </div>
+                            ))}
+                        </div>
+                        <p className="faint text-sm">
+                            Scanning this code looks the item up on the server — the label itself carries no pricing
+                            or customer data.
+                        </p>
+                    </div>
+                )}
+            </Modal>
+
+            <ConfirmDialog
+                isOpen={!!toArchive}
+                onClose={() => setToArchive(null)}
+                onConfirm={() =>
+                    runAction(
+                        () => inventoryAPI.archive(toArchive!._id),
+                        `${toArchive!.itemName} archived`,
+                        () => setToArchive(null)
+                    )
+                }
+                title="Archive item"
+                message={`Archive "${toArchive?.itemName}"? It will be hidden from the active list but kept in records, and can be restored later.`}
+                confirmLabel="Archive"
+                tone="primary"
             />
-            {isAdmin && (
-                <DeleteConfirmation
-                    isOpen={isDeleteOpen}
-                    onClose={() => setIsDeleteOpen(false)}
-                    onConfirm={confirmDelete}
-                    itemName={toDelete?.itemName || 'this item'}
-                />
-            )}
-        </div>
+
+            <ConfirmDialog
+                isOpen={!!toDelete}
+                onClose={() => setToDelete(null)}
+                onConfirm={() =>
+                    runAction(
+                        () => inventoryAPI.remove(toDelete!._id),
+                        `${toDelete!.itemName} deleted`,
+                        () => setToDelete(null)
+                    )
+                }
+                title="Delete item permanently"
+                message={`Permanently delete "${toDelete?.itemName}"? This cannot be undone. Items that appear on past rentals cannot be deleted — archive them instead.`}
+                confirmLabel="Delete permanently"
+            />
+        </>
     );
 };
 
