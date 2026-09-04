@@ -1,76 +1,93 @@
-import React, { useState, useContext } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, type FormEvent } from 'react';
+import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LoginPageStyles as styles } from '../styles/LoginPageStyles';
-import toast from 'react-hot-toast';
+import { errorMessage } from '../services/httpClient';
+import { Field } from '../components/ui';
+import ThemeToggle from '../components/ThemeToggle';
 
 const LoginPage = () => {
-    const { login } = useAuth();
+    const { login, isAuthenticated, loading } = useAuth();
     const navigate = useNavigate();
+    const location = useLocation();
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
-    const [showPassword, setShowPassword] = useState(false);
-    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+    const [busy, setBusy] = useState(false);
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    if (loading) return null;
+    if (isAuthenticated) return <Navigate to="/admin" replace />;
+
+    const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
-        setLoading(true);
+        setError('');
+        setBusy(true);
         try {
-            await login(username, password);
-            toast.success('Welcome back!');
-            navigate('/admin/products');
-        } catch (err: unknown) {
-            const msg = err instanceof Error ? err.message : 'Login failed';
-            const axiosErr = err as { response?: { data?: { message?: string } } };
-            toast.error(axiosErr.response?.data?.message || msg);
+            const user = await login(username, password);
+            // A first sign-in on an admin-issued password goes straight to the
+            // change screen rather than into the app.
+            if (user.mustChangePassword) {
+                navigate('/change-password', { replace: true });
+                return;
+            }
+            const from = (location.state as { from?: string } | null)?.from;
+            navigate(from ?? '/admin', { replace: true });
+        } catch (err) {
+            setError(errorMessage(err));
         } finally {
-            setLoading(false);
+            setBusy(false);
         }
     };
 
     return (
-        <div style={styles.page}>
-            <div style={styles.card}>
-                <div style={styles.logo}>🎵 ELVI Studio</div>
-                <p style={styles.subtitle}>Management System — Staff Login</p>
+        <div className="auth-page">
+            <div className="auth-card">
+                <div className="row row--between mb-4">
+                    <span />
+                    <ThemeToggle />
+                </div>
 
-                <form onSubmit={handleSubmit}>
-                    <label style={styles.label}>Username</label>
-                    <input
-                        type="text"
-                        style={styles.input}
-                        value={username}
-                        onChange={e => setUsername(e.target.value)}
-                        placeholder="Enter username"
-                        required
-                        autoFocus
-                    />
+                <div className="auth-card__brand">
+                    <div style={{ fontSize: 34 }} aria-hidden="true">
+                        🎵
+                    </div>
+                    <h1 className="auth-card__title">ELVI Music Studio</h1>
+                    <p className="auth-card__subtitle">Sign in to the management system</p>
+                </div>
 
-                    <label style={styles.label}>Password</label>
-                    <div style={styles.inputWrapper}>
+                <form onSubmit={handleSubmit} className="stack">
+                    {error && (
+                        <div className="alert alert--danger" role="alert">
+                            {error}
+                        </div>
+                    )}
+
+                    <Field label="Username" htmlFor="username" required>
                         <input
-                            type={showPassword ? 'text' : 'password'}
-                            style={{ ...styles.input, ...styles.inputWithAction }}
-                            value={password}
-                            onChange={e => setPassword(e.target.value)}
-                            placeholder="Enter password"
+                            id="username"
+                            className="input"
+                            value={username}
+                            onChange={e => setUsername(e.target.value)}
+                            autoComplete="username"
+                            autoFocus
                             required
                         />
-                        <button
-                            type="button"
-                            onClick={() => setShowPassword(!showPassword)}
-                            style={styles.passwordToggle}
-                        >
-                            {!showPassword ? (
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
-                            ) : (
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-                            )}
-                        </button>
-                    </div>
+                    </Field>
 
-                    <button type="submit" style={styles.button} disabled={loading}>
-                        {loading ? 'Signing in...' : 'Sign In'}
+                    <Field label="Password" htmlFor="password" required>
+                        <input
+                            id="password"
+                            type="password"
+                            className="input"
+                            value={password}
+                            onChange={e => setPassword(e.target.value)}
+                            autoComplete="current-password"
+                            required
+                        />
+                    </Field>
+
+                    <button type="submit" className="btn btn--primary btn--block" disabled={busy}>
+                        {busy && <span className="spinner" aria-hidden="true" />}
+                        {busy ? 'Signing in…' : 'Sign in'}
                     </button>
                 </form>
             </div>

@@ -1,0 +1,401 @@
+/* Admin shell: sidebar + header + content, responsive down to phone. */
+
+.admin-shell {
+    display: flex;
+    min-height: 100vh;
+}
+
+/* ─── Sidebar ──────────────────────────────────────────────────────────── */
+
+.admin-sidebar {
+    position: sticky;
+    top: 0;
+    display: flex;
+    flex-direction: column;
+    width: var(--sidebar-w);
+    height: 100vh;
+    overflow-y: auto;
+    color: #cdd6e4;
+    background: var(--c-sidebar);
+    flex-shrink: 0;
+}
+
+.admin-sidebar__brand {
+    padding: var(--sp-5) var(--sp-4) var(--sp-4);
+    font-size: var(--fs-md);
+    font-weight: 700;
+    color: #fff;
+    border-bottom: 1px solid rgb(255 255 255 / 8%);
+}
+
+.admin-sidebar__brand-sub {
+    margin-top: 2px;
+    font-size: var(--fs-xs);
+    font-weight: 400;
+    color: #8494a8;
+}
+
+.admin-sidebar__section {
+    padding: var(--sp-4) var(--sp-4) var(--sp-1);
+    font-size: var(--fs-xs);
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.admin-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 0 var(--sp-2);
+}
+
+/* A real <button>, so it is tabbable and Enter-activatable. The previous
+   markup used <div onClick>, which keyboard users could not reach at all. */
+.admin-nav__item {
+    display: flex;
+    gap: var(--sp-3);
+    align-items: center;
+    width: 100%;
+    padding: 9px var(--sp-3);
+    font-size: var(--fs-base);
+    font-weight: 500;
+    color: #97a5b8;
+    text-align: left;
+    background: transparent;
+    border: none;
+    border-radius: var(--r-sm);
+    transition: background var(--transition), color var(--transition);
+}
+
+.admin-nav__item:hover {
+    color: #fff;
+    background: var(--c-sidebar-hover);
+}
+
+.admin-nav__item[aria-current='page'] {
+    font-weight: 600;
+    color: #fff;
+    background: var(--c-accent);
+}
+
+.admin-nav__icon {
+    width: 18px;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.admin-sidebar__footer {
+    padding: var(--sp-4);
+    margin-top: auto;
+    border-top: 1px solid rgb(255 255 255 / 8%);
+}
+
+.admin-sidebar__user {
+    margin-bottom: var(--sp-3);
+}
+
+.admin-sidebar__user-name {
+    font-size: var(--fs-base);
+    font-weight: 600;
+    color: #fff;
+}
+
+.admin-sidebar__user-role {
+    font-size: var(--fs-sm);
+    color: #8494a8;
+}
+
+/* ─── Main column ──────────────────────────────────────────────────────── */
+
+.admin-main {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+}
+
+.admin-header {
+    display: flex;
+    gap: var(--sp-4);
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--sp-3) var(--sp-5);
+    background: var(--c-surface);
+    border-bottom: 1px solid var(--c-border);
+}
+
+.admin-header__date {
+    font-size: var(--fs-sm);
+    color: var(--c-text-faint);
+}
+
+.admin-header__actions {
+    display: flex;
+    gap: var(--sp-2);
+    align-items: center;
+}
+
+.avatar {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    font-size: var(--fs-base);
+    font-weight: 700;
+    color: #fff;
+    background: linear-gradient(135deg, var(--c-accent), #6f5bff);
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.admin-content {
+    flex: 1;
+    padding: var(--sp-5);
+}
+
+.admin-footer {
+    padding: var(--sp-4) var(--sp-5);
+    font-size: var(--fs-sm);
+    color: var(--c-text-faint);
+    text-align: center;
+    border-top: 1px solid var(--c-border);
+}
+
+.page-header {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-3);
+    align-items: flex-end;
+    justify-content: space-between;
+    margin-bottom: var(--sp-5);
+}
+
+.page-header__subtitle {
+    margin-top: 2px;
+    font-size: var(--fs-base);
+    color: var(--c-text-muted);
+}
+
+/* ─── Mobile menu toggle ───────────────────────────────────────────────── */
+
+.sidebar-toggle {
+    display: none;
+}
+
+.sidebar-backdrop {
+    display: none;
+}
+
+/* ─── Responsive ───────────────────────────────────────────────────────── */
+
+@media (max-width: 1024px) {
+    /* Off-canvas sidebar; the toggle button appears in the header. */
+    .admin-sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        z-index: 40;
+        transform: translateX(-100%);
+        transition: transform var(--transition);
+        box-shadow: var(--s-lg);
+    }
+
+    .admin-shell[data-sidebar='open'] .admin-sidebar {
+        transform: translateX(0);
+    }
+
+    .admin-shell[data-sidebar='open'] .sidebar-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 30;
+        display: block;
+        background: var(--c-overlay);
+        border: none;
+    }
+
+    .sidebar-toggle {
+        display: inline-flex;
+    }
+
+    .admin-content {
+        padding: var(--sp-4);
+    }
+}
+
+@media (max-width: 640px) {
+    .admin-header {
+        padding: var(--sp-3) var(--sp-4);
+    }
+
+    .admin-content {
+        padding: var(--sp-3);
+    }
+
+    .page-header {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .stat-grid {
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    }
+
+    .form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .modal__footer {
+        flex-direction: column-reverse;
+    }
+
+    .modal__footer .btn {
+        width: 100%;
+    }
+
+    /* Tables become stacked cards: a horizontal scroll on a phone hides the
+       columns that matter, so each row is relabelled instead. */
+    .table--stack thead {
+        display: none;
+    }
+
+    .table--stack tbody tr {
+        display: block;
+        padding: var(--sp-3);
+        margin-bottom: var(--sp-3);
+        background: var(--c-surface);
+        border: 1px solid var(--c-border);
+        border-radius: var(--r-md);
+    }
+
+    .table--stack td {
+        display: flex;
+        gap: var(--sp-3);
+        justify-content: space-between;
+        padding: 5px 0;
+        text-align: right;
+        border: none;
+    }
+
+    .table--stack td::before {
+        content: attr(data-label);
+        font-size: var(--fs-sm);
+        font-weight: 600;
+        color: var(--c-text-muted);
+        text-align: left;
+    }
+
+    .table--stack .table__truncate {
+        max-width: none;
+        white-space: normal;
+    }
+}
+
+/* ─── Login ────────────────────────────────────────────────────────────── */
+
+.auth-page {
+    display: grid;
+    place-items: center;
+    min-height: 100vh;
+    padding: var(--sp-4);
+    background: linear-gradient(140deg, var(--c-sidebar), #243049);
+}
+
+.auth-card {
+    width: 100%;
+    max-width: 400px;
+    padding: var(--sp-6);
+    background: var(--c-surface);
+    border-radius: var(--r-lg);
+    box-shadow: var(--s-lg);
+}
+
+.auth-card__brand {
+    margin-bottom: var(--sp-5);
+    text-align: center;
+}
+
+.auth-card__title {
+    font-size: var(--fs-lg);
+    font-weight: 700;
+}
+
+.auth-card__subtitle {
+    margin-top: var(--sp-1);
+    font-size: var(--fs-base);
+    color: var(--c-text-muted);
+}
+
+/* ─── Charts ───────────────────────────────────────────────────────────── */
+
+.chart-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: var(--sp-4);
+}
+
+.chart-card {
+    padding: var(--sp-4);
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    border-radius: var(--r-lg);
+    box-shadow: var(--s-sm);
+}
+
+.chart-card__title {
+    margin-bottom: var(--sp-1);
+    font-size: var(--fs-md);
+    font-weight: 600;
+}
+
+.chart-card__subtitle {
+    margin-bottom: var(--sp-4);
+    font-size: var(--fs-sm);
+    color: var(--c-text-muted);
+}
+
+/* ─── QR ───────────────────────────────────────────────────────────────── */
+
+.qr-frame {
+    display: grid;
+    place-items: center;
+    padding: var(--sp-4);
+    background: #fff;
+    border: 1px solid var(--c-border);
+    border-radius: var(--r-md);
+}
+
+.qr-reader {
+    overflow: hidden;
+    border-radius: var(--r-md);
+}
+
+.info-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    overflow: hidden;
+    background: var(--c-border);
+    border: 1px solid var(--c-border);
+    border-radius: var(--r-md);
+}
+
+.info-list__row {
+    display: flex;
+    gap: var(--sp-4);
+    justify-content: space-between;
+    padding: var(--sp-2) var(--sp-3);
+    background: var(--c-surface);
+}
+
+.info-list__label {
+    font-size: var(--fs-sm);
+    color: var(--c-text-muted);
+}
+
+.info-list__value {
+    font-size: var(--fs-base);
+    font-weight: 500;
+    text-align: right;
+}

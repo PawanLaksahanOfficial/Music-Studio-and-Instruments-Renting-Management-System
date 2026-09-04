@@ -1,134 +1,98 @@
-import './App.css';
-import { BrowserRouter, useRoutes, Navigate } from 'react-router-dom';
-import { StyleContextProvider } from './providers/StyleContextProvider';
+import { lazy, Suspense } from 'react';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
-import { Toaster } from 'react-hot-toast';
-import LoginPage from './pages/LoginPage';
-import AdminPanel from './pages/AdminPanel';
-import ProductRentals from './pages/ProductRentals';
-import StudioRentals from './pages/StudioRental';
-import InventoryPage from './pages/InventoryPage';
-import CustomersPage from './pages/CustomerPage';
-import UsersPage from './pages/UsersPage';
-import InvoiceManager from './pages/InvoiceManager';
-import StatsPage from './pages/StatusPage';
-import QRScannerPage from './pages/QRScannerPage';
-import QRReturnPage from './pages/QRReturnPage';
-import CustomerProfile from './pages/CustomerProfile';
-import DamagedInventory from './pages/DamagedInventory';
-import ArchivedRentals from './pages/ArchivedRentals';
-import ArchivedCustomers from './pages/ArchivedCustomers';
-import ArchivedInventory from './pages/ArchivedInventory';
+import ErrorBoundary from './components/ErrorBoundary';
+import AdminLayout from './components/AdminLayout';
 
-const AppRoutes = () => {
-    const routes = useRoutes([
-        { path: '/login', element: <LoginPage /> },
-        {
-            path: '/admin',
-            element: (
-                <ProtectedRoute>
-                    <AdminPanel />
-                </ProtectedRoute>
-            ),
-            children: [
-                { index: true, element: <Navigate to="/admin/products" replace /> },
-                { path: 'products', element: <ProductRentals /> },
-                { path: 'studio', element: <StudioRentals /> },
-                { path: 'invoices', element: <InvoiceManager /> },
-                { path: 'scanner', element: <QRScannerPage /> },
-                { path: 'returns', element: <QRReturnPage /> },
-                {
-                    path: 'inventory',
-                    element: (
-                        <ProtectedRoute requireAdmin>
-                            <InventoryPage />
-                        </ProtectedRoute>
-                    ),
-                },
-                {
-                    path: 'customers',
-                    element: (
-                        <ProtectedRoute requireAdmin>
-                            <CustomersPage />
-                        </ProtectedRoute>
-                    ),
-                },
-                {
-                    path: 'customers/:id/profile',
-                    element: (
-                        <ProtectedRoute requireAdmin>
-                            <CustomerProfile />
-                        </ProtectedRoute>
-                    ),
-                },
-                {
-                    path: 'damaged-inventory',
-                    element: (
-                        <ProtectedRoute requireAdmin>
-                            <DamagedInventory />
-                        </ProtectedRoute>
-                    ),
-                },
-                {
-                    path: 'users',
-                    element: (
-                        <ProtectedRoute requireAdmin>
-                            <UsersPage />
-                        </ProtectedRoute>
-                    ),
-                },
-                {
-                    path: 'stats',
-                    element: (
-                        <ProtectedRoute requireAdmin>
-                            <StatsPage />
-                        </ProtectedRoute>
-                    ),
-                },
-                {
-                    path: 'archived-rentals',
-                    element: (
-                        <ProtectedRoute requireAdmin>
-                            <ArchivedRentals />
-                        </ProtectedRoute>
-                    ),
-                },
-                {
-                    path: 'archived-customers',
-                    element: (
-                        <ProtectedRoute requireAdmin>
-                            <ArchivedCustomers />
-                        </ProtectedRoute>
-                    ),
-                },
-                {
-                    path: 'archived-inventory',
-                    element: (
-                        <ProtectedRoute requireAdmin>
-                            <ArchivedInventory />
-                        </ProtectedRoute>
-                    ),
-                },
-            ],
-        },
-        { path: '/', element: <Navigate to="/admin" replace /> },
-        { path: '*', element: <Navigate to="/admin" replace /> },
-    ]);
-    return routes;
-};
+/**
+ * Routes are lazy-loaded so the first paint ships the shell and the landing
+ * page rather than all seventeen screens, their charts and the PDF library.
+ */
+const LoginPage = lazy(() => import('./pages/LoginPage'));
+const ChangePasswordPage = lazy(() => import('./pages/ChangePasswordPage'));
+const SetPasswordPage = lazy(() => import('./pages/SetPasswordPage'));
+const ProductRentals = lazy(() => import('./pages/ProductRentals'));
+const StudioRentals = lazy(() => import('./pages/StudioRentals'));
+const InventoryPage = lazy(() => import('./pages/InventoryPage'));
+const CustomersPage = lazy(() => import('./pages/CustomersPage'));
+const CustomerProfile = lazy(() => import('./pages/CustomerProfile'));
+const RoomsPage = lazy(() => import('./pages/RoomsPage'));
+const UsersPage = lazy(() => import('./pages/UsersPage'));
+const InvoiceManager = lazy(() => import('./pages/InvoiceManager'));
+const StatsPage = lazy(() => import('./pages/StatsPage'));
+const QRScannerPage = lazy(() => import('./pages/QRScannerPage'));
+const QRReturnPage = lazy(() => import('./pages/QRReturnPage'));
+const DamagedInventory = lazy(() => import('./pages/DamagedInventory'));
+const ArchivedRentals = lazy(() => import('./pages/ArchivedRentals'));
+const ArchivedCustomers = lazy(() => import('./pages/ArchivedCustomers'));
+const ArchivedInventory = lazy(() => import('./pages/ArchivedInventory'));
 
-function App() {
-    return (
-        <StyleContextProvider>
-            <AuthProvider>
-                <Toaster position="top-center" />
-                <BrowserRouter>
-                    <AppRoutes />
-                </BrowserRouter>
-            </AuthProvider>
-        </StyleContextProvider>
-    );
-}
+const RouteFallback = () => (
+    <div className="stack" aria-busy="true">
+        <span className="sr-only">Loading page…</span>
+        <div className="skeleton" style={{ height: 32, width: '35%' }} />
+        <div className="skeleton" style={{ height: 180 }} />
+    </div>
+);
+
+/** Wraps an admin route in its guard. */
+const admin = (element: React.ReactNode) => <ProtectedRoute requireAdmin>{element}</ProtectedRoute>;
+
+const App = () => (
+    <AuthProvider>
+        <Toaster position="top-right" toastOptions={{ duration: 4000 }} />
+        <BrowserRouter>
+            <ErrorBoundary>
+                <Suspense fallback={<RouteFallback />}>
+                    <Routes>
+                        <Route path="/login" element={<LoginPage />} />
+                        <Route path="/set-password" element={<SetPasswordPage />} />
+                        <Route
+                            path="/change-password"
+                            element={
+                                <ProtectedRoute>
+                                    <ChangePasswordPage />
+                                </ProtectedRoute>
+                            }
+                        />
+
+                        <Route
+                            path="/admin"
+                            element={
+                                <ProtectedRoute>
+                                    <AdminLayout />
+                                </ProtectedRoute>
+                            }
+                        >
+                            <Route index element={<Navigate to="/admin/rentals" replace />} />
+                            <Route path="rentals" element={<ProductRentals />} />
+                            <Route path="studio" element={<StudioRentals />} />
+                            <Route path="invoices" element={<InvoiceManager />} />
+                            <Route path="scanner" element={<QRScannerPage />} />
+                            <Route path="returns" element={<QRReturnPage />} />
+
+                            <Route path="inventory" element={admin(<InventoryPage />)} />
+                            <Route path="damaged" element={admin(<DamagedInventory />)} />
+                            <Route path="customers" element={admin(<CustomersPage />)} />
+                            <Route path="customers/:id" element={admin(<CustomerProfile />)} />
+                            <Route path="rooms" element={admin(<RoomsPage />)} />
+                            <Route path="users" element={admin(<UsersPage />)} />
+                            <Route path="stats" element={admin(<StatsPage />)} />
+
+                            <Route path="archived/rentals" element={admin(<ArchivedRentals />)} />
+                            <Route path="archived/customers" element={admin(<ArchivedCustomers />)} />
+                            <Route path="archived/inventory" element={admin(<ArchivedInventory />)} />
+                        </Route>
+
+                        <Route path="/" element={<Navigate to="/admin" replace />} />
+                        <Route path="*" element={<Navigate to="/admin" replace />} />
+                    </Routes>
+                </Suspense>
+            </ErrorBoundary>
+        </BrowserRouter>
+    </AuthProvider>
+);
 
 export default App;

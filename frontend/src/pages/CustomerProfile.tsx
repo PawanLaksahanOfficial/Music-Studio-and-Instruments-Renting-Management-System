@@ -1,196 +1,193 @@
-import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useCallback, useEffect, useReducer } from 'react';
+import { Link, useParams } from 'react-router-dom';
 import { customersAPI } from '../services/api';
-import { CustomerProfileStyles as s } from '../styles/CustomerProfileStyles';
+import { errorMessage } from '../services/httpClient';
+import { EmptyState, ErrorState, PageHeader, StatusBadge, TableSkeleton } from '../components/ui';
+import { currency, formatDate } from '../utils/format';
+import type { CustomerProfile as Profile } from '../types/api';
 
-interface ProfileData {
-    customer: {
-        _id: string;
-        firstName: string;
-        lastName: string;
-        email?: string;
-        phone: string;
-        nicOrPassport: string;
-        isBlacklisted: boolean;
-        createdAt: string;
-    };
-    stats: {
-        totalRentals: number;
-        totalSpending: number;
-        lastRentalDate: string | null;
-        outstandingFines: number;
-    };
-    rentalHistory: Array<{
-        _id: string;
-        rentalId: string;
-        items: Array<{ itemId: { itemName: string; serialNumber: string } }>;
-        rentalDate: string;
-        dueDate: string;
-        returnDate?: string;
-        status: string;
-        totalAmount: number;
-        paymentStatus: string;
-        lateFee: number;
-        damageCharges: number;
-        damageNotes: string;
-    }>;
+interface ProfileState {
+    profile: Profile | null;
+    loading: boolean;
+    error: string | null;
 }
 
-const fmtDate = (d: string | Date) =>
-    d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+type ProfileAction = { type: 'start' } | { type: 'success'; profile: Profile } | { type: 'error'; message: string };
 
-const currency = (n: number) => `Rs. ${n.toLocaleString('en-LK')}`;
-
-const statusBadgeStyle = (st: string) => {
-    const map: Record<string, [string, string]> = {
-        Rented: ['#fef3c7', '#92400e'],
-        Returned: ['#d1fae5', '#065f46'],
-        Overdue: ['#fee2e2', '#991b1b'],
-    };
-    const [bg, color] = map[st] || ['#f1f5f9', '#475569'];
-    return s.statusBadge(bg, color);
+const profileReducer = (state: ProfileState, action: ProfileAction): ProfileState => {
+    switch (action.type) {
+        case 'start':
+            return { profile: state.profile, loading: true, error: null };
+        case 'success':
+            return { profile: action.profile, loading: false, error: null };
+        case 'error':
+            return { profile: null, loading: false, error: action.message };
+    }
 };
 
-const payBadgeStyle = (st: string) => {
-    const map: Record<string, [string, string]> = {
-        Paid: ['#d1fae5', '#065f46'],
-        Pending: ['#fef3c7', '#92400e'],
-        Partial: ['#fef3c7', '#92400e'],
-    };
-    const [bg, color] = map[st] || ['#f1f5f9', '#475569'];
-    return s.payBadge(bg, color);
-};
-
-const blacklistBadge = (isBlacklisted: boolean) =>
-    s.statusBadge(isBlacklisted ? '#fee2e2' : '#d1fae5', isBlacklisted ? '#991b1b' : '#065f46');
-
-const CustomerProfile: React.FC = () => {
+const CustomerProfilePage = () => {
     const { id } = useParams<{ id: string }>();
-    const navigate = useNavigate();
-    const [profile, setProfile] = useState<ProfileData | null>(null);
-    const [loading, setLoading] = useState(true);
+    const [{ profile, loading, error }, dispatch] = useReducer(profileReducer, {
+        profile: null,
+        loading: true,
+        error: null,
+    });
 
-    useEffect(() => {
+    const load = useCallback(() => {
         if (!id) return;
-        setLoading(true);
-        customersAPI.getProfile(id)
-            .then(res => setProfile(res.data))
-            .catch(() => alert('Failed to load customer profile'))
-            .finally(() => setLoading(false));
+        dispatch({ type: 'start' });
+        customersAPI
+            .getProfile(id)
+            .then(profile => dispatch({ type: 'success', profile }))
+            .catch(err => dispatch({ type: 'error', message: errorMessage(err) }));
     }, [id]);
 
-    if (loading) return <div style={s.loading}>Loading customer profile...</div>;
-    if (!profile) return <div style={s.loading}>Customer not found.</div>;
+    useEffect(load, [load]);
+
+    if (loading) {
+        return (
+            <>
+                <PageHeader title="Customer profile" />
+                <div className="stat-grid mb-4">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                        <div key={i} className="skeleton" style={{ height: 84 }} />
+                    ))}
+                </div>
+                <TableSkeleton cols={6} />
+            </>
+        );
+    }
+
+    if (error) return <ErrorState message={error} onRetry={load} />;
+    if (!profile) return null;
 
     const { customer, stats, rentalHistory } = profile;
 
     return (
-        <div style={s.container}>
-            <div style={s.pageHeader}>
-                <div>
-                    <h2 style={s.pageTitle}>👤 {customer.firstName} {customer.lastName}</h2>
-                    <p style={s.pageSub}>Customer Profile & Rental History</p>
+        <>
+            <PageHeader
+                title={`${customer.firstName} ${customer.lastName}`}
+                subtitle={
+                    <>
+                        {customer.phone}
+                        {customer.email ? ` · ${customer.email}` : ''} · NIC {customer.nicOrPassport}
+                    </>
+                }
+                actions={
+                    <Link className="btn" to="/admin/customers">
+                        ← All customers
+                    </Link>
+                }
+            />
+
+            {customer.isBlacklisted && (
+                <div className="alert alert--danger mb-4" role="alert">
+                    <span aria-hidden="true">⚠</span>
+                    <div>This customer is blacklisted and cannot start new rentals.</div>
                 </div>
-                <button onClick={() => navigate('/admin/customers')} style={s.ghostBtn}>
-                    ← Back to Customers
-                </button>
-            </div>
-            <div style={s.card}>
-                <div style={s.headerRow}>
-                    <h3 style={s.sectionTitle}>Customer Details</h3>
-                    <span style={blacklistBadge(customer.isBlacklisted)}>
-                        {customer.isBlacklisted ? 'Blacklisted' : 'Active'}
-                    </span>
+            )}
+
+            <div className="stat-grid mb-4">
+                <div className="stat">
+                    <div className="stat__label">Total rentals</div>
+                    <div className="stat__value">{stats.totalRentals}</div>
+                    <div className="stat__hint">{stats.studioBookings} studio bookings</div>
                 </div>
-                <div style={s.profileGrid}>
-                    <div>
-                        <div style={s.label}>Full Name</div>
-                        <div style={s.value}>{customer.firstName} {customer.lastName}</div>
-                    </div>
-                    <div>
-                        <div style={s.label}>Phone</div>
-                        <div style={s.value}>{customer.phone}</div>
-                    </div>
-                    <div>
-                        <div style={s.label}>Email</div>
-                        <div style={s.value}>{customer.email || '—'}</div>
-                    </div>
-                    <div>
-                        <div style={s.label}>NIC / Passport</div>
-                        <div style={s.value}>{customer.nicOrPassport}</div>
-                    </div>
-                    <div>
-                        <div style={s.label}>Registered Since</div>
-                        <div style={s.value}>{fmtDate(customer.createdAt)}</div>
-                    </div>
+                <div className="stat stat--success">
+                    <div className="stat__label">Lifetime spend</div>
+                    <div className="stat__value">{currency(stats.totalSpending)}</div>
+                    <div className="stat__hint">Rentals and studio combined</div>
                 </div>
-            </div>
-            <div style={s.card}>
-                <h3 style={s.sectionTitle}>📊 Rental Statistics</h3>
-                <div style={s.statsGrid}>
-                    <div style={s.statCard}>
-                        <div style={s.statNumber}>{stats.totalRentals}</div>
-                        <div style={s.statLabel}>Total Rentals</div>
+                <div className={`stat ${stats.outstandingFines > 0 ? 'stat--danger' : 'stat--success'}`}>
+                    <div className="stat__label">Outstanding fines</div>
+                    <div className="stat__value">{currency(stats.outstandingFines)}</div>
+                    <div className="stat__hint">Unpaid late and damage charges</div>
+                </div>
+                <div className={`stat ${stats.lateReturns > 0 ? 'stat--warning' : 'stat--success'}`}>
+                    <div className="stat__label">On-time returns</div>
+                    <div className="stat__value">
+                        {stats.onTimeRate === null ? '—' : `${stats.onTimeRate}%`}
                     </div>
-                    <div style={s.statCard}>
-                        <div style={s.statNumber}>{currency(stats.totalSpending)}</div>
-                        <div style={s.statLabel}>Total Spending</div>
-                    </div>
-                    <div style={s.statCard}>
-                        <div style={s.statNumber}>{stats.lastRentalDate ? fmtDate(stats.lastRentalDate) : '—'}</div>
-                        <div style={s.statLabel}>Last Rental Date</div>
-                    </div>
-                    <div style={s.statCard}>
-                        <div style={stats.outstandingFines > 0 ? s.statNumberDanger : s.statNumberSuccess}>
-                            {stats.outstandingFines > 0 ? currency(stats.outstandingFines) : 'Rs. 0'}
-                        </div>
-                        <div style={s.statLabel}>Outstanding Fines</div>
+                    <div className="stat__hint">
+                        {stats.lateReturns} late · {stats.openRentals} currently out
                     </div>
                 </div>
             </div>
-            <div style={s.card}>
-                <h3 style={s.sectionTitle}>📋 Rental History ({rentalHistory.length} records)</h3>
-                <div style={s.tableWrapper}>
-                    {rentalHistory.length > 0 ? (
-                        <table style={s.table}>
-                            <thead>
-                                <tr>
-                                    <th style={s.th}>Rental ID</th>
-                                    <th style={s.th}>Item</th>
-                                    <th style={s.th}>Rental Date</th>
-                                    <th style={s.th}>Due Date</th>
-                                    <th style={s.th}>Returned</th>
-                                    <th style={s.th}>Status</th>
-                                    <th style={s.th}>Amount</th>
-                                    <th style={s.th}>Payment</th>
-                                    <th style={s.th}>Late Fee</th>
-                                    <th style={s.th}>Damage</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {rentalHistory.map(r => (
-                                    <tr key={r._id}>
-                                        <td style={{ ...s.td, ...s.tdBold }}>{r.rentalId}</td>
-                                        <td style={s.td}>{r.items[0]?.itemId?.itemName || 'N/A'}</td>
-                                        <td style={s.td}>{fmtDate(r.rentalDate)}</td>
-                                        <td style={s.td}>{fmtDate(r.dueDate)}</td>
-                                        <td style={s.td}>{r.returnDate ? fmtDate(r.returnDate) : '—'}</td>
-                                        <td style={s.td}><span style={statusBadgeStyle(r.status)}>{r.status}</span></td>
-                                        <td style={{ ...s.td, ...s.tdBold }}>{currency(r.totalAmount)}</td>
-                                        <td style={s.td}><span style={payBadgeStyle(r.paymentStatus)}>{r.paymentStatus}</span></td>
-                                        <td style={{ ...s.td, ...s.fineAmount }}>{r.lateFee > 0 ? currency(r.lateFee) : '—'}</td>
-                                        <td style={s.td}>{r.damageCharges > 0 ? currency(r.damageCharges) : '—'}</td>
+
+            <h2 className="mb-4">Rental history</h2>
+
+            {rentalHistory.length === 0 ? (
+                <div className="table-wrap">
+                    <EmptyState icon="📋" title="No rentals yet" hint="This customer has not rented anything." />
+                </div>
+            ) : (
+                <div className="table-wrap">
+                    <table className="table table--stack">
+                        <thead>
+                            <tr>
+                                <th scope="col">Rental</th>
+                                <th scope="col">Items</th>
+                                <th scope="col">Rented</th>
+                                <th scope="col">Due</th>
+                                <th scope="col">Returned</th>
+                                <th scope="col">Status</th>
+                                <th scope="col" className="table__num">
+                                    Total
+                                </th>
+                                <th scope="col">Payment</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {rentalHistory.map(rental => {
+                                const isLate =
+                                    rental.returnDate && new Date(rental.returnDate) > new Date(rental.dueDate);
+                                return (
+                                    <tr key={rental._id}>
+                                        <td data-label="Rental" className="table__mono">
+                                            {rental.rentalId}
+                                        </td>
+                                        <td data-label="Items" className="table__truncate">
+                                            {rental.items
+                                                .map(i => (typeof i.itemId === 'string' ? i.itemId : i.itemId?.itemName))
+                                                .filter(Boolean)
+                                                .join(', ') || '—'}
+                                        </td>
+                                        <td data-label="Rented">{formatDate(rental.rentalDate)}</td>
+                                        <td data-label="Due">{formatDate(rental.dueDate)}</td>
+                                        <td data-label="Returned">
+                                            {formatDate(rental.returnDate)}
+                                            {isLate && (
+                                                <span className="badge badge--danger" style={{ marginLeft: 6 }}>
+                                                    Late
+                                                </span>
+                                            )}
+                                        </td>
+                                        <td data-label="Status">
+                                            <StatusBadge status={rental.status} />
+                                        </td>
+                                        <td data-label="Total" className="table__num">
+                                            {currency(rental.totalAmount)}
+                                            {(rental.lateFee > 0 || rental.damageCharges > 0) && (
+                                                <div className="faint text-sm">
+                                                    base {currency(rental.baseAmount)}
+                                                    {rental.lateFee > 0 && ` · late ${currency(rental.lateFee)}`}
+                                                    {rental.damageCharges > 0 &&
+                                                        ` · damage ${currency(rental.damageCharges)}`}
+                                                </div>
+                                            )}
+                                        </td>
+                                        <td data-label="Payment">
+                                            <StatusBadge status={rental.paymentStatus} />
+                                        </td>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    ) : (
-                        <div style={s.noData}>No rental history found for this customer.</div>
-                    )}
+                                );
+                            })}
+                        </tbody>
+                    </table>
                 </div>
-            </div>
-        </div>
+            )}
+        </>
     );
 };
 
-export default CustomerProfile;
+export default CustomerProfilePage;

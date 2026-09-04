@@ -1,95 +1,94 @@
-import React, { useEffect, useState } from 'react';
+import toast from 'react-hot-toast';
 import { inventoryAPI } from '../services/api';
-import { ArchivedInventoryStyles as styles } from '../styles/ArchivedInventoryStyles';
+import { errorMessage } from '../services/httpClient';
+import { usePagedQuery } from '../hooks/usePagedQuery';
+import { EmptyState, ErrorState, PageHeader, Pagination, StatusBadge, TableSkeleton } from '../components/ui';
+import { currency, formatDate } from '../utils/format';
+import type { InventoryItem } from '../types/api';
 
-const ArchivedInventory: React.FC = () => {
-    const [items, setItems] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
+const ArchivedInventory = () => {
+    const query = usePagedQuery<InventoryItem>(params => inventoryAPI.getArchived(params));
 
-    const fetch = async () => {
-        setLoading(true);
+    const restore = async (item: InventoryItem) => {
         try {
-            const res = await inventoryAPI.getArchived();
-            setItems(res.data);
-        } catch (e) { 
-            console.error(e); 
-        }
-        finally { 
-            setLoading(false); 
+            await inventoryAPI.restore(item._id);
+            toast.success(`${item.itemName} restored`);
+            query.refresh();
+        } catch (err) {
+            toast.error(errorMessage(err));
         }
     };
-
-    useEffect(() => { 
-        fetch(); 
-    }, []);
-
-    const handleRestore = async (id: string) => {
-        try { 
-            await inventoryAPI.restore(id); 
-            fetch(); 
-        }
-        catch { 
-            alert('Restore failed'); 
-        }
-    };
-
-    const handleDelete = async (id: string) => {
-        if (!window.confirm('Permanently delete this archived item? This cannot be undone.')) return;
-        try { 
-            await inventoryAPI.delete(id); 
-            fetch(); 
-        }
-        catch { 
-            alert('Delete failed'); 
-        }
-    };
-
-    if (loading) return <div style={styles.loading}>Loading archived inventory...</div>;
 
     return (
-        <div style={styles.container}>
-            <div style={styles.header}>
-                <div>
-                    <h2 style={styles.title}>Archived Inventory</h2>
-                    <p style={styles.subtitle}>{items.length} archived items</p>
+        <>
+            <PageHeader title="Archived inventory" subtitle={query.meta ? `${query.meta.total} archived` : 'Loading…'} />
+
+            <div className="filter-bar">
+                <label className="sr-only" htmlFor="archived-inventory-search">
+                    Search archived items
+                </label>
+                <input
+                    id="archived-inventory-search"
+                    className="input"
+                    type="search"
+                    placeholder="Search name, serial or brand…"
+                    value={query.search}
+                    onChange={e => query.setSearch(e.target.value)}
+                />
+            </div>
+
+            {query.error && <ErrorState message={query.error} onRetry={query.refresh} />}
+
+            {query.loading && query.items.length === 0 ? (
+                <TableSkeleton cols={6} />
+            ) : query.items.length === 0 && !query.error ? (
+                <div className="table-wrap">
+                    <EmptyState icon="📦" title="No archived items" />
                 </div>
-            </div>
-            <div style={styles.tableWrapper}>
-                <table style={styles.table}>
-                    <thead>
-                        <tr>
-                            <th style={styles.th}>Item Name</th>
-                            <th style={styles.th}>Category</th>
-                            <th style={styles.th}>Serial #</th>
-                            <th style={styles.th}>Status</th>
-                            <th style={styles.th}>Archived</th>
-                            <th style={styles.th}>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {items.length > 0 ? items.map((item: any) => (
-                            <tr key={item._id}>
-                                <td style={{ ...styles.td, ...styles.tdBold }}>{item.itemName}</td>
-                                <td style={styles.td}>{item.category}</td>
-                                <td style={{ ...styles.td, ...styles.tdMonospace }}>{item.serialNumber}</td>
-                                <td style={styles.td}>{item.status}</td>
-                                <td style={{ ...styles.td, ...styles.tdSmall }}>
-                                    {item.archivedAt ? new Date(item.archivedAt).toLocaleDateString() : '—'}
-                                </td>
-                                <td style={styles.td}>
-                                    <div style={styles.actionGroup}>
-                                        <button onClick={() => handleRestore(item._id)} style={styles.restoreButton}>Restore</button>
-                                        <button onClick={() => handleDelete(item._id)} style={styles.deleteButton}>Delete</button>
-                                    </div>
-                                </td>
+            ) : (
+                <div className="table-wrap">
+                    <table className="table table--stack">
+                        <thead>
+                            <tr>
+                                <th scope="col">Item</th>
+                                <th scope="col">Serial</th>
+                                <th scope="col">Status</th>
+                                <th scope="col" className="table__num">
+                                    Daily rate
+                                </th>
+                                <th scope="col">Archived</th>
+                                <th scope="col">Actions</th>
                             </tr>
-                        )) : (
-                            <tr><td colSpan={6} style={styles.noData}>No archived inventory items.</td></tr>
-                        )}
-                    </tbody>
-                </table>
-            </div>
-        </div>
+                        </thead>
+                        <tbody>
+                            {query.items.map(item => (
+                                <tr key={item._id}>
+                                    <td data-label="Item">
+                                        <strong>{item.itemName}</strong>
+                                    </td>
+                                    <td data-label="Serial" className="table__mono">
+                                        {item.serialNumber}
+                                    </td>
+                                    <td data-label="Status">
+                                        <StatusBadge status={item.status} />
+                                    </td>
+                                    <td data-label="Daily rate" className="table__num">
+                                        {currency(item.baseRentalPrice)}
+                                    </td>
+                                    <td data-label="Archived">{formatDate(item.archivedAt)}</td>
+                                    <td data-label="Actions">
+                                        <button type="button" className="btn btn--sm" onClick={() => void restore(item)}>
+                                            Restore
+                                        </button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                    {query.meta && <Pagination meta={query.meta} onPageChange={query.setPage} />}
+                </div>
+            )}
+        </>
     );
 };
 

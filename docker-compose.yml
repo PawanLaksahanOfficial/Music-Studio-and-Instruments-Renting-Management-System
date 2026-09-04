@@ -1,0 +1,53 @@
+# Local full-stack environment: Mongo replica set (required for the
+# transactions the API relies on), the API, and the SPA.
+#
+# Usage: docker compose up --build
+# Then:  docker compose exec api npm run seed
+
+services:
+  mongo:
+    image: mongo:7
+    command: ["--replSet", "rs0", "--bind_ip_all"]
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: >
+        mongosh --quiet --eval
+        "try { rs.status() } catch (e) { rs.initiate({_id:'rs0',members:[{_id:0,host:'mongo:27017'}]}) }"
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: ./backend
+    ports:
+      - "5000:5000"
+    environment:
+      NODE_ENV: development
+      PORT: 5000
+      MONGO_URI: mongodb://mongo:27017/elvi?replicaSet=rs0
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in a .env file next to this compose file}
+      JWT_EXPIRES_IN: 8h
+      CORS_ORIGINS: http://localhost:5173,http://localhost:8080
+      AZURE_COMMUNICATION_CONNECTION_STRING: ${AZURE_COMMUNICATION_CONNECTION_STRING:-}
+      AZURE_EMAIL_SENDER_ADDRESS: ${AZURE_EMAIL_SENDER_ADDRESS:-}
+      AZURE_SMS_FROM_NUMBER: ${AZURE_SMS_FROM_NUMBER:-}
+      ENABLE_CRON: "true"
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: http://localhost:5000/api
+    ports:
+      - "8080:80"
+    depends_on:
+      - api
+
+volumes:
+  mongo-data:
