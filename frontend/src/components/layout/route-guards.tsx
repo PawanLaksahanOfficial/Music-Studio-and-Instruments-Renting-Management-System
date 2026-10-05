@@ -26,8 +26,8 @@ export const RequireAuth = ({ children }: { children: ReactNode }) => {
     return <>{children}</>;
 };
 
-/** UI guard only — the API enforces the same rule on every admin endpoint. */
+/** UI guard only — the API enforces the same rule on every admin endpoint (demo: read-only). */
 export const RequireAdmin = ({ children }: { children: ReactNode }) => {
-    const { isAdmin } = useAuth();
-    return isAdmin ? <>{children}</> : <Navigate to="/admin/products" replace />;
+    const { canViewAdmin } = useAuth();
+    return canViewAdmin ? <>{children}</> : <Navigate to="/admin/products" replace />;
 };

@@ -39,10 +39,10 @@ interface SidebarNavProps {
 
 /** Grouped navigation shared by the desktop sidebar and the mobile drawer. */
 export const SidebarNav = ({ collapsed = false, onNavigate }: SidebarNavProps) => {
-    const { isAdmin } = useAuth();
+    const { canViewAdmin } = useAuth();
     return (
         <nav aria-label="Main" className="flex flex-1 flex-col gap-5 overflow-y-auto px-3 py-4">
-            {visibleGroups(isAdmin).map(group => (
+            {visibleGroups(canViewAdmin).map(group => (
                 <div key={group.label}>
                     {collapsed ? (
                         <div className="mx-auto mb-2 h-px w-6 bg-sidebar-border" aria-hidden />

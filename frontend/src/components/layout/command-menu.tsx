@@ -23,7 +23,7 @@ const groupClass = '[&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:pb-1.
 /** ⌘K / Ctrl+K palette: jump to any page or start a common task. */
 export const CommandMenu = ({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) => {
     const navigate = useNavigate();
-    const { isAdmin, logout } = useAuth();
+    const { canViewAdmin, logout } = useAuth();
     const { resolvedTheme, setTheme } = useTheme();
 
     useEffect(() => {
@@ -75,13 +75,13 @@ export const CommandMenu = ({ open, onOpenChange }: { open: boolean; onOpenChang
                         <Command.List className="max-h-[min(60vh,420px)] overflow-y-auto overscroll-contain p-2">
                             <Command.Empty className="py-10 text-center text-sm text-muted-foreground">No results found.</Command.Empty>
                             <Command.Group heading="Quick actions" className={groupClass}>
-                                {actions.filter(a => !a.adminOnly || isAdmin).map(action => (
+                                {actions.filter(a => !a.adminOnly || canViewAdmin).map(action => (
                                     <Command.Item key={action.label} value={action.label} keywords={action.keywords} onSelect={action.run} className={itemClass}>
                                         <action.icon /> {action.label}
                                     </Command.Item>
                                 ))}
                             </Command.Group>
-                            {visibleGroups(isAdmin).map(group => (
+                            {visibleGroups(canViewAdmin).map(group => (
                                 <Command.Group key={group.label} heading={group.label} className={groupClass}>
                                     {group.items.map(item => (
                                         <Command.Item key={item.path} value={`Go to ${item.label}`} keywords={item.keywords} onSelect={() => go(item.path)} className={itemClass}>

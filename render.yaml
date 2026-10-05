@@ -18,6 +18,8 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: NODE_VERSION
+        value: "24"
       - key: MONGOMS_DISABLE_POSTINSTALL
         value: "1"
       # One proxy hop (Render's load balancer) sits in front of the app.

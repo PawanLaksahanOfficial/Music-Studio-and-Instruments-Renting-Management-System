@@ -21,6 +21,7 @@ const TONES: Record<string, BadgeTone> = {
     // People
     Admin: 'violet',
     Cashier: 'info',
+    Demo: 'warning',
     Active: 'success',
     Inactive: 'neutral',
     Blacklisted: 'danger',

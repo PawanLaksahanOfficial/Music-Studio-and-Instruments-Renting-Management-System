@@ -59,6 +59,42 @@ describe('user management guards', () => {
     });
 });
 
+describe('read-only demo account', () => {
+    let visitor: Agent;
+
+    beforeAll(async () => {
+        await createUser('visitor', 'Demo');
+        visitor = await signIn('visitor');
+    });
+
+    it('can view every area, including admin pages', async () => {
+        for (const url of ['/api/rentals', '/api/customers', '/api/customers/archived', '/api/inventory/archived', '/api/users', '/api/stats/summary']) {
+            expect((await visitor.get(url)).status, url).toBe(200);
+        }
+    });
+
+    it('cannot change anything', async () => {
+        const create = await visitor.post('/api/customers').set(xhr).send({ firstName: 'A', lastName: 'B', phone: '0771234567', nicOrPassport: 'DEMO12345' });
+        expect(create.status).toBe(403);
+        expect(create.body.code).toBe('DEMO_READ_ONLY');
+        expect((await visitor.delete(`/api/users/${adminId}`).set(xhr)).status).toBe(403);
+        expect((await visitor.post('/api/cron/trigger-reminders').set(xhr)).status).toBe(403);
+        expect((await visitor.patch('/api/auth/password').set(xhr).send({ currentPassword: 'Password123', newPassword: 'Hijacked2026' })).status).toBe(403);
+    });
+
+    it("signing out doesn't end other visitors' sessions", async () => {
+        const other = await signIn('visitor');
+        expect((await other.post('/api/auth/logout').set(xhr)).status).toBe(204);
+        expect((await visitor.get('/api/auth/me')).status).toBe(200);
+    });
+
+    it('admin-created demo accounts are never forced to change their password', async () => {
+        const res = await admin.post('/api/users').set(xhr).send({ name: 'Guest', username: 'guest', password: 'Guest2026', role: 'Demo' });
+        expect(res.status).toBe(201);
+        expect(res.body.mustChangePassword).toBe(false);
+    });
+});
+
 describe('inventory and customers', () => {
     it('saves itemModel and notes, and generates the QR id on the server', async () => {
         const res = await admin.post('/api/inventory').set(xhr).send({

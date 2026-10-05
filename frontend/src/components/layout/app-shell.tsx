@@ -1,7 +1,8 @@
 import { Suspense, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
-import { Ellipsis, Menu, PanelLeftClose, PanelLeftOpen, Search } from 'lucide-react';
+import { Ellipsis, Eye, Menu, PanelLeftClose, PanelLeftOpen, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/providers/auth-provider';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, Tooltip } from '@/components/ui/menus';
 import { PageLoader } from '@/components/data/page';
@@ -29,6 +30,7 @@ const readCollapsed = () => {
  */
 export const AppShell = () => {
     const location = useLocation();
+    const { isDemo } = useAuth();
     const [collapsed, setCollapsed] = useState(readCollapsed);
     const [drawerOpen, setDrawerOpen] = useState(false);
     const [commandOpen, setCommandOpen] = useState(false);
@@ -97,6 +99,12 @@ export const AppShell = () => {
                         <ThemeToggle />
                         <UserMenu />
                     </div>
+                    {isDemo && (
+                        <p role="status" className="flex items-center justify-center gap-2 border-t border-amber-500/20 bg-amber-500/10 px-4 py-2 text-center text-xs font-medium text-amber-800 sm:text-sm dark:text-amber-300">
+                            <Eye className="size-4 shrink-0" aria-hidden />
+                            You&apos;re exploring a read-only demo. Look around freely; changes aren&apos;t saved.
+                        </p>
+                    )}
                 </header>
 
                 <main id="main" className="mx-auto w-full max-w-[1400px] flex-1 px-4 pb-28 pt-6 sm:px-6 md:pb-10 lg:px-8 lg:pt-8">

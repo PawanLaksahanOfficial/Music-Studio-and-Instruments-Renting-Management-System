@@ -15,7 +15,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "seed": "tsx scripts/seed.ts"
+    "seed": "tsx scripts/seed.ts",
+    "seed:sample": "tsx scripts/seed-sample.ts"
   },
   "dependencies": {
     "@aws-sdk/client-ses": "^3.1048.0",

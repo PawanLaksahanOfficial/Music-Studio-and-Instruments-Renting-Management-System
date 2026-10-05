@@ -1,4 +1,5 @@
-export const ROLES = ['Admin', 'Cashier'] as const;
+/** "Demo" is a read-only showcase role: it can view every page, but the server rejects any change it makes. */
+export const ROLES = ['Admin', 'Cashier', 'Demo'] as const;
 export type Role = (typeof ROLES)[number];
 
 export const STUDIO_ROOMS = ['Studio A', 'Studio B', 'Studio C', 'Recording Booth'] as const;

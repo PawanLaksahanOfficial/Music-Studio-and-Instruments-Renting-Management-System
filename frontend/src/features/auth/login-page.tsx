@@ -3,7 +3,7 @@ import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { CalendarCheck, Eye, EyeOff, LockKeyhole, ReceiptText, ScanLine, User } from 'lucide-react';
+import { CalendarCheck, Eye, EyeOff, LockKeyhole, ReceiptText, ScanLine, Sparkles, User } from 'lucide-react';
 import { useAuth } from '@/providers/auth-provider';
 import { getErrorMessage } from '@/lib/api';
 import { useDocumentTitle } from '@/hooks/use-document-title';
@@ -25,6 +25,11 @@ const FEATURES = [
     { icon: ReceiptText, title: 'Invoices & insights', text: 'Printable invoices, payments and revenue trends in one place.' },
 ];
 
+// Optional one-click access to the read-only demo account (set both variables on a showcase deployment).
+const DEMO_LOGIN = import.meta.env.VITE_DEMO_USERNAME && import.meta.env.VITE_DEMO_PASSWORD
+    ? { username: import.meta.env.VITE_DEMO_USERNAME, password: import.meta.env.VITE_DEMO_PASSWORD }
+    : null;
+
 // Decorative waveform heights for the brand panel.
 const WAVE = [28, 46, 64, 38, 80, 56, 92, 70, 44, 86, 60, 34, 72, 50, 88, 40, 66, 30, 58, 76];
 
@@ -37,6 +42,7 @@ const LoginPage = () => {
     const [showPassword, setShowPassword] = useState(false);
     const [capsLock, setCapsLock] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [demoLoading, setDemoLoading] = useState(false);
 
     const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormValues>({ resolver: zodResolver(schema) });
 
@@ -49,6 +55,20 @@ const LoginPage = () => {
             navigate(signedIn.mustChangePassword ? '/change-password' : from, { replace: true });
         } catch (err) {
             setError(getErrorMessage(err, 'Sign in failed. Please try again.'));
+        }
+    };
+
+    const exploreDemo = async () => {
+        if (!DEMO_LOGIN) return;
+        setError(null);
+        setDemoLoading(true);
+        try {
+            await login(DEMO_LOGIN.username, DEMO_LOGIN.password);
+            navigate('/admin/products', { replace: true });
+        } catch (err) {
+            setError(getErrorMessage(err, 'The demo is unavailable right now. Please try again shortly.'));
+        } finally {
+            setDemoLoading(false);
         }
     };
 
@@ -131,6 +151,19 @@ const LoginPage = () => {
                             {isSubmitting ? 'Signing in…' : 'Sign in'}
                         </Button>
                     </form>
+                    {DEMO_LOGIN && (
+                        <div>
+                            <div className="my-6 flex items-center gap-3 text-xs text-muted-foreground" aria-hidden>
+                                <span className="h-px flex-1 bg-border" />or<span className="h-px flex-1 bg-border" />
+                            </div>
+                            <Button variant="outline" size="lg" className="w-full" onClick={exploreDemo} loading={demoLoading} disabled={isSubmitting}>
+                                {!demoLoading && <Sparkles />} Explore the demo
+                            </Button>
+                            <p className="mt-2 text-center text-xs text-muted-foreground">
+                                Read-only access, no account needed. The first visit can take up to a minute while the server wakes up.
+                            </p>
+                        </div>
+                    )}
                     <p className="mt-8 text-center text-xs text-muted-foreground">Forgot your password? Ask an administrator to send you new sign-in details.</p>
                 </div>
                 <p className="text-center text-xs text-muted-foreground">© {new Date().getFullYear()} ELVI Music Studio</p>

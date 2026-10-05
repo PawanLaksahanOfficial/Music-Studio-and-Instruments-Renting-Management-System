@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { createColumnHelper } from '@tanstack/react-table';
@@ -51,10 +51,11 @@ const UserForm = ({ user, onClose }: { user: User | null; onClose: () => void })
     const [error, setError] = useState<string | null>(null);
     const isSelf = user?._id === me?._id;
 
-    const { register, handleSubmit, formState: { errors } } = useForm<FormValues>({
+    const { control, register, handleSubmit, formState: { errors } } = useForm<FormValues>({
         resolver: zodResolver(schema(!user)),
         defaultValues: { name: user?.name ?? '', username: user?.username ?? '', email: user?.email ?? '', role: user?.role ?? 'Cashier', password: '' },
     });
+    const isDemoRole = useWatch({ control, name: 'role' }) === 'Demo';
 
     const onSubmit = async (values: FormValues) => {
         setError(null);
@@ -70,7 +71,9 @@ const UserForm = ({ user, onClose }: { user: User | null; onClose: () => void })
                 toast.success(`${values.name} updated`);
             } else {
                 await create.mutateAsync({ ...values, email: values.email || undefined });
-                toast.success(`${values.name} can now sign in`, { description: 'They will be asked to choose their own password.' });
+                toast.success(`${values.name} can now sign in`, {
+                    description: values.role === 'Demo' ? 'Read-only demo account.' : 'They will be asked to choose their own password.',
+                });
             }
             onClose();
         } catch (err) {
@@ -82,7 +85,7 @@ const UserForm = ({ user, onClose }: { user: User | null; onClose: () => void })
         <form onSubmit={handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col" noValidate>
             <DialogHeader>
                 <DialogTitle>{user ? `Edit ${user.name}` : 'New staff user'}</DialogTitle>
-                <DialogDescription>{user ? `@${user.username}` : 'Cashiers run rentals and invoices; admins also manage inventory, customers, staff and reports.'}</DialogDescription>
+                <DialogDescription>{user ? `@${user.username}` : 'Cashiers run rentals and invoices; admins also manage inventory, customers, staff and reports. Demo accounts can look at everything but change nothing.'}</DialogDescription>
             </DialogHeader>
             <DialogBody className="space-y-4">
                 <FormError message={error} />
@@ -113,6 +116,11 @@ const UserForm = ({ user, onClose }: { user: User | null; onClose: () => void })
                     <p className="flex gap-2 rounded-xl bg-primary/8 p-3 text-sm text-muted-foreground">
                         <Info className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
                         <span>To change your own password, use <Link to="/change-password" className="font-medium text-primary hover:underline">Change password</Link>.</span>
+                    </p>
+                ) : isDemoRole ? (
+                    <p className="flex gap-2 rounded-xl bg-amber-500/10 p-3 text-sm text-muted-foreground">
+                        <Info className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden />
+                        Demo accounts are read-only and keep this password, so you can publish it (e.g. in your README). Its holders can see all data, including customer details, so keep only sample data on a site with a public demo.
                     </p>
                 ) : (
                     <p className="flex gap-2 rounded-xl bg-primary/8 p-3 text-sm text-muted-foreground">
@@ -155,7 +163,7 @@ const UsersPage = () => {
         const isSelf = u._id === me?._id;
         return [
             { label: 'Edit', icon: <Pencil />, onSelect: () => setDialog({ open: true, user: u }) },
-            { label: 'Email new sign-in details', icon: <Send />, onSelect: () => sendConfirm.open(u), hidden: isSelf || !u.email || !u.isActive },
+            { label: 'Email new sign-in details', icon: <Send />, onSelect: () => sendConfirm.open(u), hidden: isSelf || !u.email || !u.isActive || u.role === 'Demo' },
             { label: 'Activate', icon: <Power />, onSelect: () => activate(u), hidden: u.isActive },
             { label: 'Deactivate', icon: <PowerOff />, onSelect: () => deactivateConfirm.open(u), destructive: true, hidden: isSelf || !u.isActive },
             { label: 'Delete', icon: <Trash2 />, onSelect: () => deleteConfirm.open(u), destructive: true, hidden: isSelf },

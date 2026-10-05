@@ -52,12 +52,29 @@ const requireFreshPassword: RequestHandler = (req, _res, next) => {
     next();
 };
 
+const READ_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+
+export const DEMO_READ_ONLY_MESSAGE = 'This is a read-only demo account, so changes are not saved.';
+
+/** The Demo role may look at everything but change nothing. */
+const blockDemoWrites: RequestHandler = (req, _res, next) => {
+    if (req.user?.role === 'Demo' && !READ_METHODS.has(req.method)) {
+        throw forbidden(DEMO_READ_ONLY_MESSAGE, 'DEMO_READ_ONLY');
+    }
+    next();
+};
+
 /** Standard guard for business routes. */
-export const protect: RequestHandler[] = [authenticate, requireFreshPassword];
+export const protect: RequestHandler[] = [authenticate, requireFreshPassword, blockDemoWrites];
 
 export const requireRole = (...roles: Role[]): RequestHandler => (req, _res, next) => {
     if (!req.user || !roles.includes(req.user.role)) throw forbidden('Administrator access required');
     next();
 };
 
-export const adminOnly = requireRole('Admin');
+/** Admin areas: full access for admins; the read-only Demo role may view them. */
+export const adminOnly: RequestHandler = (req, _res, next) => {
+    const role = req.user?.role;
+    if (role === 'Admin' || (role === 'Demo' && READ_METHODS.has(req.method))) return next();
+    throw forbidden('Administrator access required');
+};

@@ -11,4 +11,5 @@ export const PAYMENT_METHODS = ['Cash', 'Card', 'Transfer'] as const;
 export const STUDIO_ROOMS = ['Studio A', 'Studio B', 'Studio C', 'Recording Booth'] as const;
 export const STUDIO_STATUSES = ['Confirmed', 'Completed', 'Cancelled'] as const;
 
-export const ROLES = ['Cashier', 'Admin'] as const;
+/** Demo: a read-only showcase account that can view every page but change nothing. */
+export const ROLES = ['Cashier', 'Admin', 'Demo'] as const;

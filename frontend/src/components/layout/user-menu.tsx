@@ -31,7 +31,7 @@ export const ThemeToggle = () => {
 };
 
 export const UserMenu = () => {
-    const { user, isAdmin, logout } = useAuth();
+    const { user, isAdmin, isDemo, logout } = useAuth();
     const { theme, setTheme } = useTheme();
     const navigate = useNavigate();
     const reminders = useTriggerReminders();
@@ -82,7 +82,7 @@ export const UserMenu = () => {
                         ))}
                     </div>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem icon={<KeyRound />} onSelect={() => navigate('/change-password')}>Change password</DropdownMenuItem>
+                    {!isDemo && <DropdownMenuItem icon={<KeyRound />} onSelect={() => navigate('/change-password')}>Change password</DropdownMenuItem>}
                     {isAdmin && (
                         <DropdownMenuItem icon={<BellRing />} onSelect={() => setConfirmReminders(true)}>Send due-date reminders</DropdownMenuItem>
                     )}
