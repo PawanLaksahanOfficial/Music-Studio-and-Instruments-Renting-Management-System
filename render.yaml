@@ -1,0 +1,47 @@
+# Render Blueprint for the ELVI Music Studio API (backend/).
+# Render dashboard → New → Blueprint → select this repository.
+# Values marked `sync: false` are asked for when the Blueprint is created.
+services:
+  - type: web
+    name: elvi-api
+    runtime: node
+    rootDir: backend
+    region: singapore
+    # "free" sleeps after 15 minutes without traffic (30–60 s wake-up) and scheduled reminders
+    # won't run while asleep. Use "starter" (always on) when the studio relies on it daily.
+    plan: free
+    # Dev dependencies (TypeScript) are needed to build; skip the test-only MongoDB download.
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm start
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGOMS_DISABLE_POSTINSTALL
+        value: "1"
+      # One proxy hop (Render's load balancer) sits in front of the app.
+      - key: TRUST_PROXY
+        value: "1"
+      - key: APP_TIMEZONE
+        value: Asia/Colombo
+      - key: DEFAULT_COUNTRY_CODE
+        value: "94"
+      - key: SERVE_CLIENT
+        value: "false"
+      # Render generates a random 256-bit secret.
+      - key: JWT_SECRET
+        generateValue: true
+      - key: MONGO_URI
+        sync: false
+      # The website's exact origin, e.g. https://elvistudio.dpdns.org (no trailing slash).
+      - key: CORS_ORIGINS
+        sync: false
+      - key: AWS_REGION
+        value: us-east-1
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: AWS_SES_FROM_EMAIL
+        sync: false

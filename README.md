@@ -73,6 +73,16 @@ frontend/src/
 - **Hardening.** Helmet (CSP, HSTS, nosniff, frame protection), `Permissions-Policy` (camera allowed on this origin only), rate limits (global and per login account), a 100 KB body limit, and errors without internal details (each response carries a `requestId`).
 - **Logging.** Structured JSON logs (pino) with request IDs. Credentials and cookies are redacted, and phone numbers and emails are masked. Security-relevant events are logged with the acting user (`auth.login_failed`, `user.deactivated`, `rental.late_fee_override`, …).
 
+## Deploying (Vercel + Render)
+
+The website goes on **Vercel** (`frontend/`, configured by `frontend/vercel.json`) and the API on **Render** (`backend/`, configured by `render.yaml`). Give both their own subdomain of one domain, for example `elvistudio.dpdns.org` for the site and `api.elvistudio.dpdns.org` for the API, so the session cookie counts as same-site.
+
+1. **Render** → New → Blueprint → this repo. Set `MONGO_URI` and `CORS_ORIGINS=https://<site domain>`. `JWT_SECRET` is generated for you. Add Render's outbound IPs (service → Connect → Outbound) to MongoDB Atlas Network Access.
+2. **Vercel** → New Project → this repo, root directory `frontend`. Set the environment variable `VITE_API_URL=https://<api domain>/api`.
+3. Add the custom domains in both dashboards, and create the DNS records they show you (Cloudflare: proxy status "DNS only").
+
+Vercel's free Hobby plan is for non-commercial use only, and Render's free plan sleeps when idle. Use paid plans for a business that relies on the app daily.
+
 ## Deployment notes
 
 - **Same-site deployment is required for the cookie.** Either set `SERVE_CLIENT=true` so the API serves `frontend/dist` (one origin), or host the frontend and API on the same site (e.g. `app.example.com` + `api.example.com`). In the second case, list the frontend origin in `CORS_ORIGINS` and set `VITE_API_URL`.
