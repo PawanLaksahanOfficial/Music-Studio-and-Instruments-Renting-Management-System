@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { changePassword, getMe, login, logout } from '../controllers/authController';
-import { authenticate } from '../middleware/auth';
+import { authenticate, denyDemo } from '../middleware/auth';
 import { validate } from '../middleware/validate';
 import { loginAccountLimiter, loginIpLimiter } from '../middleware/security';
 import { changePasswordBody, loginBody } from '../validators/auth';
@@ -11,6 +11,6 @@ router.post('/login', loginIpLimiter, loginAccountLimiter, validate({ body: logi
 router.post('/logout', logout);
 // `authenticate` (not `protect`) so users who must change their password can still reach these.
 router.get('/me', authenticate, getMe);
-router.patch('/password', authenticate, validate({ body: changePasswordBody }), changePassword);
+router.patch('/password', authenticate, denyDemo, validate({ body: changePasswordBody }), changePassword);
 
 export default router;
