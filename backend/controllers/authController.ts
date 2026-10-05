@@ -1,8 +1,6 @@
 import { RequestHandler } from 'express';
 import authService from '../services/authService';
 import { clearSessionCookie, SESSION_COOKIE, setSessionCookie, verifySessionToken } from '../services/tokenService';
-import { DEMO_READ_ONLY_MESSAGE } from '../middleware/auth';
-import { forbidden } from '../utils/AppError';
 
 // POST /api/auth/login
 export const login: RequestHandler = async (req, res) => {
@@ -35,7 +33,6 @@ export const logout: RequestHandler = async (req, res) => {
 
 // PATCH /api/auth/password
 export const changePassword: RequestHandler = async (req, res) => {
-    if (req.user!.role === 'Demo') throw forbidden(DEMO_READ_ONLY_MESSAGE, 'DEMO_READ_ONLY');
     const { user, token } = await authService.changePassword(req.user!.id, req.body.currentPassword, req.body.newPassword);
     setSessionCookie(res, token);
     res.json({ user });

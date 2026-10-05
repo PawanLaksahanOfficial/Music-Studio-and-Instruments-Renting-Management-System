@@ -61,8 +61,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         try {
             await api.post('/auth/logout');
         } finally {
-            qc.clear();
+            // Keep the session query itself: `qc.clear()` would detach the observer above,
+            // leaving the old user in context so the sign-in page bounced straight back in.
             qc.setQueryData(keys.me, null);
+            qc.removeQueries({ predicate: query => query.queryKey[0] !== 'auth' });
         }
     }, [qc]);
 

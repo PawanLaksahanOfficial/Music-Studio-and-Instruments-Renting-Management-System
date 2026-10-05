@@ -80,6 +80,9 @@ describe('read-only demo account', () => {
         expect((await visitor.delete(`/api/users/${adminId}`).set(xhr)).status).toBe(403);
         expect((await visitor.post('/api/cron/trigger-reminders').set(xhr)).status).toBe(403);
         expect((await visitor.patch('/api/auth/password').set(xhr).send({ currentPassword: 'Password123', newPassword: 'Hijacked2026' })).status).toBe(403);
+        // Rejected as read-only before any input validation, so the answer is always the same.
+        const emptyPasswordChange = await visitor.patch('/api/auth/password').set(xhr).send({});
+        expect(emptyPasswordChange.body.code).toBe('DEMO_READ_ONLY');
     });
 
     it("signing out doesn't end other visitors' sessions", async () => {

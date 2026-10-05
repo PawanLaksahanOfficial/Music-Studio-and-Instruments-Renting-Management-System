@@ -64,6 +64,12 @@ const blockDemoWrites: RequestHandler = (req, _res, next) => {
     next();
 };
 
+/** For account routes the demo may never use (e.g. changing its password), checked before input validation. */
+export const denyDemo: RequestHandler = (req, _res, next) => {
+    if (req.user?.role === 'Demo') throw forbidden(DEMO_READ_ONLY_MESSAGE, 'DEMO_READ_ONLY');
+    next();
+};
+
 /** Standard guard for business routes. */
 export const protect: RequestHandler[] = [authenticate, requireFreshPassword, blockDemoWrites];
 
