@@ -10,6 +10,10 @@ interface AuthContextValue {
     /** The session check failed for a reason other than "not signed in" (e.g. server offline). */
     error: unknown;
     isAdmin: boolean;
+    /** Read-only showcase account: sees everything, the server rejects its changes. */
+    isDemo: boolean;
+    /** Can open the admin-only pages (admins, and the demo account for browsing). */
+    canViewAdmin: boolean;
     login: (username: string, password: string) => Promise<AuthUser>;
     logout: () => Promise<void>;
     setUser: (user: AuthUser) => void;
@@ -70,6 +74,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         isLoading: me.isPending,
         error: me.isError ? me.error : null,
         isAdmin: user?.role === 'Admin',
+        isDemo: user?.role === 'Demo',
+        canViewAdmin: user?.role === 'Admin' || user?.role === 'Demo',
         login,
         logout,
         setUser,

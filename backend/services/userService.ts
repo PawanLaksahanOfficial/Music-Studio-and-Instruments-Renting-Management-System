@@ -25,7 +25,8 @@ class UserService {
         if (await User.exists({ username: input.username })) throw conflict('That username is already taken');
 
         // Admin-chosen passwords are temporary: the user picks their own on first sign-in.
-        const user = await User.create({ ...input, email: input.email || undefined, mustChangePassword: true });
+        // Demo accounts are the exception: their password is published and they can't change it.
+        const user = await User.create({ ...input, email: input.email || undefined, mustChangePassword: input.role !== 'Demo' });
         logger.info({ event: 'user.created', userId: user.id, role: user.role, by: actor.id }, 'User created');
         return toPublicUser(user);
     }
@@ -50,6 +51,7 @@ class UserService {
             user.mustChangePassword = true;
             user.tokenVersion += 1;
         }
+        if (user.role === 'Demo') user.mustChangePassword = false;
 
         await user.save();
         logger.info({ event: 'user.updated', userId: user.id, by: actor.id, fields: Object.keys(input) }, 'User updated');
@@ -92,6 +94,7 @@ class UserService {
     async sendLoginDetails(id: string, actor: AuthUser) {
         const user = await User.findById(id);
         if (!user) throw notFound('User');
+        if (user.role === 'Demo') throw badRequest('Demo accounts use a published password and have no sign-in emails');
         if (!user.email) throw badRequest('Add an email address to this user first');
         if (!user.isActive) throw badRequest('Activate this user before sending login details');
         // Check before resetting the password, so a misconfiguration can't lock the user out.

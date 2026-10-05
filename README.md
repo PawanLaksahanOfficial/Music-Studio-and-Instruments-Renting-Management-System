@@ -1,118 +1,193 @@
-# ELVI Music Studio — Management System
+# ELVI Music Studio — Rental & Studio Management System
 
-Staff app for running a music studio: instrument rentals with QR checkout and returns, studio room bookings, invoicing, customers, staff accounts and business statistics. Works on phones, tablets and desktops, in light and dark themes.
+A full-stack web app for running a music studio: instrument rentals with QR checkout and returns, recording-room bookings, invoicing, customer records, staff accounts and business statistics. It works on phones, tablets and desktops, in light and dark themes.
 
-| Layer | Stack |
+![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-6-3178C6?logo=typescript&logoColor=white)
+![Node.js](https://img.shields.io/badge/Node.js-24-5FA04E?logo=nodedotjs&logoColor=white)
+![Express](https://img.shields.io/badge/Express-5-000000?logo=express&logoColor=white)
+![MongoDB](https://img.shields.io/badge/MongoDB-Atlas-47A248?logo=mongodb&logoColor=white)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?logo=tailwindcss&logoColor=white)
+
+## Live demo
+
+**https://elvistudio.dpdns.org**
+
+Click **Explore the demo** on the sign-in page, or sign in with:
+
+| Username | Password | Access |
+|---|---|---|
+| `demo` | `Demo1234` | Read-only: open every page and form; changes aren't saved |
+
+The demo runs on free hosting, so the first visit after a quiet period can take up to a minute while the server wakes up.
+
+## Screenshots
+
+| Rentals (desktop) | Statistics (dark mode) |
 |---|---|
-| Frontend | React 19, Vite, TypeScript, Tailwind CSS v4, Radix UI primitives (shadcn-style components), TanStack Query + Table, React Hook Form + Zod, Recharts |
-| Backend | Node.js ≥ 20, Express 5, TypeScript, Mongoose 9 (MongoDB **replica set** required), Zod, Pino |
+| ![Product rentals list](docs/screenshots/rentals.png) | ![Statistics dashboard in dark mode](docs/screenshots/statistics-dark.png) |
+| **Return with automatic late fee** | **Printable invoice** |
+| ![Processing a late return](docs/screenshots/return.png) | ![Invoice view](docs/screenshots/invoice.png) |
+
+| Sign in | Phone: rentals | Phone: new rental |
+|---|---|---|
+| ![Sign-in page](docs/screenshots/sign-in.png) | ![Rentals on a phone](docs/screenshots/mobile-rentals.png) | ![New rental form on a phone](docs/screenshots/mobile-new-rental.png) |
+
+## Features
+
+**Instrument rentals and returns**
+- **QR checkout:** scan an instrument's label, or type its code, then pick the customer and dates. The rental and its invoice are created together.
+- **Server-side pricing:** totals are calculated on the server from the daily rates. Extending a rental re-prices it.
+- **QR returns:**
+  - late fees calculated automatically
+  - a condition check for each item; damaged items go to a repair queue
+  - a printable return receipt
+- **Overdue tracking and reminders:** overdue rentals are flagged automatically. SMS and email reminders go out the day before, on the day and the day after the due date, and are never sent twice.
+
+**Studio bookings**
+- Room scheduling that **cannot double-book**, even when two staff book at the same moment.
+- Quick actions to mark sessions completed or cancelled.
+
+**Invoicing**
+- Link rentals and studio bookings, add extra lines and tax, and record the payment method.
+- Marking an invoice paid also marks the linked rentals paid.
+- Sequential numbers (`INV-2026-000123`) and printable invoices.
+
+**Inventory and customers**
+- QR labels generated in the browser, ready to download or print.
+- Item statuses: available, rented, maintenance, damaged, lost.
+- Customer profiles with rental history, total spend and unpaid fees.
+- A customer blacklist, and an archive with restore.
+
+**Statistics**
+- Revenue by month and source, rental growth, damage costs, most-rented items, top customers and late returns.
+- Date-range presets and PDF export.
+
+**Staff and access**
+- Roles:
+  - **Admin:** everything.
+  - **Cashier:** rentals, bookings, invoices and returns.
+  - **Demo:** read-only.
+- New staff must choose their own password at first sign-in. Admins can email sign-in details without ever seeing the password.
+
+**Interface**
+- Responsive layout:
+  - desktop: a sidebar
+  - tablet: a slide-out menu
+  - phone: a bottom tab bar and forms that slide up from the bottom
+- Light and dark themes, a **Ctrl/⌘ + K** command palette, and keyboard and screen-reader support.
+
+## Tech stack
+
+| Layer | Technologies |
+|---|---|
+| Frontend | React 19, TypeScript, Vite, Tailwind CSS v4, Radix UI (shadcn-style components), TanStack Query & Table, React Hook Form + Zod, Recharts, html5-qrcode, jsPDF |
+| Backend | Node.js 24, Express 5, TypeScript, Mongoose 9, Zod, Pino (structured logs), node-cron, Helmet, express-rate-limit |
+| Database | MongoDB Atlas (replica set, for multi-document transactions) |
 | Notifications | AWS SNS (SMS) and SES (email) |
+| Testing | Vitest, Supertest, mongodb-memory-server |
+| Hosting | Vercel (website), Render (API), MongoDB Atlas (database), DigitalPlat (domain) |
 
-## Quick start
+## Architecture
 
-### Try it without a database
-
-```bash
-cd backend && npm install && npm run dev:demo      # API on :5000 with an in-memory MongoDB + sample data
-cd frontend && npm install && npm run dev          # http://localhost:5173
+```mermaid
+flowchart LR
+    U[Browser] -->|"elvistudio.dpdns.org"| V["Vercel<br/>React app"]
+    U -->|"api.elvistudio.dpdns.org<br/>secure session cookie"| R["Render<br/>Express API"]
+    R --> M[("MongoDB Atlas")]
+    R -.->|reminders| A["AWS SNS / SES"]
 ```
 
-Sign in with `admin / Demo1234` (Admin) or `cashier / Demo1234` (Cashier). The user `ishara / Welcome123` shows the forced password-change flow. Demo data disappears when the API stops, and no SMS or email is ever sent in demo mode.
+The website and API are on sub-domains of the same domain, so the `httpOnly`, `SameSite=Strict` session cookie works without exposing the token to JavaScript.
 
-### Run against your database
+## Security highlights
 
-1. Copy `backend/.env.example` to `backend/.env` and fill it in. At minimum you need:
-   - `MONGO_URI`: a replica set. MongoDB Atlas works as is. For a local `mongod`, start it with `--replSet rs0` and run `rs.initiate()`.
-   - `JWT_SECRET`: at least 32 random characters, e.g. `openssl rand -base64 48`. **The server refuses to start without a valid secret.**
-2. Create the first admin with `npm run seed` (in `backend/`). It uses `SEED_ADMIN_PASSWORD`, or generates a password and prints it once. That admin must choose a new password at first sign-in.
-3. Run `npm run dev` in both `backend/` and `frontend/`. Vite proxies `/api` to `localhost:5000`, so the session cookie stays first-party.
+- **Sessions:** a JWT in an `httpOnly`, `Secure`, `SameSite=Strict` cookie. Sessions can be revoked instantly (sign-out, password or role change, deactivation).
+- **CSRF protection:** a required request header, together with a strict CORS allowlist.
+- **Input:** every request is validated with Zod, and MongoDB operator injection (`$ne`, `$gt`, …) is rejected.
+- **Data integrity:** prices, late fees and invoice totals are calculated on the server, never taken from the browser. Concurrent rentals and bookings are made safe with database transactions.
+- **Accounts:** login rate limiting and lockout, bcrypt password hashing, and a password policy.
+- **Hardening:** Helmet security headers, and error messages that don't reveal internals.
+- **Logging:** structured logs with request IDs, and personal data masked.
 
-> **Security notice:** an earlier `backend/.env`, containing the MongoDB connection string and JWT secret, was committed to this repository. It is no longer tracked, but it remains in git history. **Rotate the MongoDB Atlas database user's password and set a new `JWT_SECRET`.** Treat the old values as public.
+## Run it locally
+
+Requires **Node.js 20+**.
+
+**Option 1: no database needed.** Uses an in-memory MongoDB with sample data.
+```bash
+cd backend && npm install && npm run dev:demo      # API on http://localhost:5000
+cd frontend && npm install && npm run dev          # App on http://localhost:5173
+```
+Sign in as:
+- `admin` / `Demo1234`
+- `cashier` / `Demo1234`
+- `demo` / `Demo1234` (read-only)
+
+Data resets whenever the API restarts, and no SMS or email is sent.
+
+**Option 2: your own MongoDB Atlas database.**
+1. Copy `backend/.env.example` to `backend/.env` and set:
+   - `MONGO_URI` (include the database name, e.g. `…mongodb.net/elvi?…`)
+   - `JWT_SECRET` (32+ random characters; generate one with `node -e "console.log(require('crypto').randomBytes(48).toString('base64'))"`)
+2. Run `npm run seed` in `backend/` to create the first admin. It prints a temporary password.
+3. Run `npm run dev` in both `backend/` and `frontend/`.
 
 ## Scripts
 
-| Where | Command | What it does |
+| Folder | Command | Purpose |
 |---|---|---|
-| backend | `npm run dev` | API with reload (tsx watch) |
-| backend | `npm run dev:demo` | API + in-memory MongoDB + sample data |
-| backend | `npm test` | Integration tests (Vitest + Supertest + in-memory replica set) |
-| backend | `npm run typecheck` / `npm run build` / `npm start` | Type-check, compile to `dist/`, run the compiled server |
-| backend | `npm run seed` | Create the first admin user |
-| frontend | `npm run dev` / `npm run build` / `npm run preview` | Dev server, production build, preview the build |
-| frontend | `npm run lint` / `npm run typecheck` | ESLint, TypeScript |
+| backend | `npm run dev` | API with auto-reload |
+| backend | `npm run dev:demo` | API with an in-memory database and sample data |
+| backend | `npm test` | Integration tests |
+| backend | `npm run build` / `npm start` | Production build / run |
+| backend | `npm run seed` | Create the first admin account |
+| backend | `npm run seed:sample` | Add the sample dataset and the read-only `demo` account (runs once; never changes existing data) |
+| frontend | `npm run dev` / `npm run build` | Dev server / production build |
+| frontend | `npm run lint` / `npm run typecheck` | Code checks |
 
 ## Project structure
 
 ```
 backend/
-  app.ts, server.ts      Express app (testable) / process entry (DB connect, cron, graceful shutdown)
-  config/                env validation (zod), DB connection, business constants
-  middleware/            auth (JWT cookie + roles), validation, security (helmet, CORS, rate limits, CSRF), errors
-  validators/            zod request schemas per resource
-  routes/ → controllers/ → services/ → models/   thin controllers; business rules live in services
-  utils/                 logger, AppError, transactions, document numbers, dates, AWS, cron jobs
+  app.ts, server.ts      Express app / server start-up (DB, cron, graceful shutdown)
+  config/                validated environment, DB connection, constants
+  middleware/            auth & roles, validation, security, error handling
+  routes/ → controllers/ → services/ → models/
+  validators/            Zod request schemas
+  utils/                 logger, transactions, document numbers, dates, AWS, cron jobs
   scripts/               seed.ts, demo.ts
   tests/                 API integration tests
 frontend/src/
-  api/                   TanStack Query hooks per resource
-  components/ui/         design-system primitives (button, dialog, combobox, …)
-  components/data/       DataTable (table on desktop, cards on phones), page header, stat cards, dialogs
-  components/layout/     app shell (sidebar, drawer, bottom tab bar, ⌘K palette), route guards
-  features/<area>/       pages and their dialogs
-  lib/, providers/, hooks/, types/
+  api/                   data-fetching hooks per resource
+  components/            UI kit, data table, layout (sidebar, tab bar, command palette)
+  features/<area>/       pages and dialogs
+docs/screenshots/        README images
+render.yaml              Render deployment blueprint
+frontend/vercel.json     Vercel routing and security headers
 ```
 
-## Security model
+## Deployment
 
-- **Sessions.** A signed JWT (HS256 pinned, with issuer, audience and expiry) lives in an `httpOnly`, `SameSite=Strict` cookie scoped to `/api`, and is `Secure` in production. JavaScript never sees the token. Every request re-checks that the user is still active, and a per-user `tokenVersion` revokes sessions instantly on sign-out, password change, role change or deactivation.
-- **CSRF.** SameSite=Strict cookies, plus a required `X-Requested-With` header on state-changing requests, plus a CORS allowlist (`CORS_ORIGINS`).
-- **Input.** Every route validates its body, params and query with Zod (unknown fields are stripped). A global guard rejects MongoDB operator keys (`$ne`, dotted paths, `__proto__`).
-- **Business integrity.** Prices, late fees and invoice totals are always computed on the server; amounts sent by the client are ignored. Item reservations, rental + invoice creation, returns and studio bookings run in MongoDB transactions, so double-renting or double-booking is impossible even with simultaneous requests.
-- **Access control.** Cashiers run rentals, bookings, invoices and returns. Admins also manage inventory, customers, staff, archives and statistics, and can override late fees. Admins cannot delete, deactivate or demote themselves, and the last active admin can't be removed.
-- **Accounts.** Passwords use bcrypt (12 rounds) and require at least 8 characters with a letter and a number. Admin-set passwords are temporary, so the user must choose their own at first sign-in. "Email sign-in details" generates a random temporary password server-side; admins never see it.
-- **Hardening.** Helmet (CSP, HSTS, nosniff, frame protection), `Permissions-Policy` (camera allowed on this origin only), rate limits (global and per login account), a 100 KB body limit, and errors without internal details (each response carries a `requestId`).
-- **Logging.** Structured JSON logs (pino) with request IDs. Credentials and cookies are redacted, and phone numbers and emails are masked. Security-relevant events are logged with the acting user (`auth.login_failed`, `user.deactivated`, `rental.late_fee_override`, …).
+| Part | Where | Configuration |
+|---|---|---|
+| API (`backend/`) | Render web service, from `render.yaml` | `MONGO_URI`, `CORS_ORIGINS=https://elvistudio.dpdns.org`; `JWT_SECRET` is generated automatically |
+| Website (`frontend/`) | Vercel, root directory `frontend` | `VITE_API_URL=https://api.elvistudio.dpdns.org/api`; optionally `VITE_DEMO_USERNAME` / `VITE_DEMO_PASSWORD` for the demo button |
+| Database | MongoDB Atlas | Network Access allows Render's outbound IPs |
+| DNS | DigitalPlat | `A @ → Vercel IP`, `CNAME api → elvi-api.onrender.com.` |
 
-## Deploying (Vercel + Render)
+Pushing to `main` redeploys both the website and the API automatically. Health checks: `GET /healthz` (process up) and `GET /readyz` (database connected).
 
-The website goes on **Vercel** (`frontend/`, configured by `frontend/vercel.json`) and the API on **Render** (`backend/`, configured by `render.yaml`). Give both their own subdomain of one domain, for example `elvistudio.dpdns.org` for the site and `api.elvistudio.dpdns.org` for the API, so the session cookie counts as same-site.
+## Roadmap
 
-1. **Render** → New → Blueprint → this repo. Set `MONGO_URI` and `CORS_ORIGINS=https://<site domain>`. `JWT_SECRET` is generated for you. Add Render's outbound IPs (service → Connect → Outbound) to MongoDB Atlas Network Access.
-2. **Vercel** → New Project → this repo, root directory `frontend`. Set the environment variable `VITE_API_URL=https://<api domain>/api`.
-3. Add the custom domains in both dashboards, and create the DNS records they show you (Cloudflare: proxy status "DNS only").
+- Server-side pagination and search for large lists
+- A dashboard home with today's returns, overdue items and studio schedule
+- A studio calendar view and hourly room rates
+- An audit log of payment, fee and role changes
+- Two-factor sign-in for admins
+- Automated CI checks and browser end-to-end tests
+- Payment links, WhatsApp reminders and an installable phone app
 
-Vercel's free Hobby plan is for non-commercial use only, and Render's free plan sleeps when idle. Use paid plans for a business that relies on the app daily.
+## Author
 
-## Deployment notes
-
-- **Same-site deployment is required for the cookie.** Either set `SERVE_CLIENT=true` so the API serves `frontend/dist` (one origin), or host the frontend and API on the same site (e.g. `app.example.com` + `api.example.com`). In the second case, list the frontend origin in `CORS_ORIGINS` and set `VITE_API_URL`.
-- Behind a reverse proxy or load balancer, set `TRUST_PROXY` (usually `1`) so rate limiting sees real client IPs.
-- Health probes: `GET /healthz` (process up) and `GET /readyz` (database connected).
-- The server shuts down gracefully on `SIGTERM`. The overdue job runs hourly and reminder SMS/email go out daily at 09:00 in `APP_TIMEZONE`. Reminders are recorded on each rental, so they are never sent twice.
-- Rate limits and cron run in memory per process. If you run more than one instance, see the suggestions below.
-
-## Upgrading existing data
-
-No migration script is needed:
-- New fields are optional, with fallbacks for older records (`baseAmount`, per-item `dailyRate`, invoice line `kind`, `paidAt`).
-- Existing `PR-…`/`SR-…`/`INV-…` numbers stay valid, and new ones look like `PR-2026-000123`.
-- Indexes are built automatically on start.
-- Everyone signs in once more after the upgrade, because sessions moved from localStorage to cookies.
-
-API changes for any other clients:
-- `PATCH /rentals/:id/status` and `POST /rentals/process-return` are replaced by `PATCH /rentals/:id`, `PATCH /rentals/:id/extend`, `GET /rentals/:id/return-quote` and `POST /rentals/:id/return`.
-- `POST /users/share-credentials` is replaced by `POST /users/:id/send-login-details`.
-- Rental creation takes `itemIds` and returns `{ rental, invoice }`.
-
-## Suggested next improvements
-
-1. Server-side pagination, search and sorting for all lists (needed once data grows into the thousands).
-2. A dashboard home: returns due today, overdue items, today's studio schedule, revenue trend.
-3. A studio calendar view, plus a room catalogue with hourly rates so studio prices are computed on the server too.
-4. An audit-log collection (who changed payments, fees or roles) with an admin viewer.
-5. Refresh-token rotation, a device/session list, and optional TOTP 2FA for admins.
-6. CI (GitHub Actions: lint, typecheck, tests, `npm audit`), Dependabot, and Playwright end-to-end tests.
-7. Shared API types (a `packages/types` workspace or OpenAPI + generated client) so the frontend and backend can't drift.
-8. Error and uptime monitoring (Sentry, health checks) and log shipping.
-9. Redis-backed rate limiting and a cron lock for multi-instance deployments, and Docker Compose for local parity.
-10. Customer-facing extras: payment links, WhatsApp reminders, deposits/security holds, maintenance scheduling with costs, and an installable PWA for staff phones.
+Built by [Pawan Laksahan](https://github.com/PawanLaksahanOfficial).
