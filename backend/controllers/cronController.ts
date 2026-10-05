@@ -1,20 +1,15 @@
-import { Request, Response } from 'express';
-const { runDueDateReminders } = require('../utils/cronJobs');
+import { RequestHandler } from 'express';
+import { markOverdueRentals, runDueDateReminders } from '../utils/cronJobs';
+import { logger } from '../utils/logger';
 
-export const triggerReminders = async (req: Request, res: Response) => {
-    try {
-        const count = await runDueDateReminders();
-        res.status(200).json({
-            success: true,
-            message: 'Due date reminders triggered successfully',
-            processedCount: count
-        });
-    } catch (error: any) {
-        console.error('Manual trigger error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to trigger reminders',
-            error: error.message
-        });
-    }
+// POST /api/cron/trigger-reminders
+export const triggerReminders: RequestHandler = async (req, res) => {
+    logger.info({ event: 'cron.manual_trigger', by: req.user!.id }, 'Reminders triggered manually');
+    const overdueMarked = await markOverdueRentals();
+    const summary = await runDueDateReminders();
+    res.json({
+        message: `Reminders processed: ${summary.sent} sent, ${summary.skipped} already sent or not due, ${summary.failed} failed.`,
+        overdueMarked,
+        ...summary,
+    });
 };

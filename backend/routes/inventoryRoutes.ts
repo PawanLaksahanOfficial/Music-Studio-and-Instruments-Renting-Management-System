@@ -1,24 +1,28 @@
-import express, { Router } from 'express';
-import { protect, adminOnly } from '../auth';
+import { Router } from 'express';
+import { adminOnly, protect } from '../middleware/auth';
+import { validate } from '../middleware/validate';
+import { idParams } from '../validators/common';
+import { createInventoryBody, qrParams, updateInventoryBody } from '../validators/inventory';
 import {
-    getAllInventoryRecords, getByQRCode, getInventoryById,
-    createInventoryItem, updateInventoryItem, archiveInventoryItem,
-    restoreInventoryItem, deleteInventoryItem, getArchivedInventoryRecords,
-    getDamagedInventoryRecords
+    archiveInventoryItem, createInventoryItem, deleteInventoryItem, getByQrCode, getInventoryItem,
+    listArchivedInventory, listDamagedInventory, listInventory, restoreInventoryItem, updateInventoryItem,
 } from '../controllers/inventoryController';
 
-const router: Router = express.Router();
+const router = Router();
+const withId = validate({ params: idParams });
 
-router.use(protect as any);
-router.get('/qr/:qrCodeId', getByQRCode);
-router.get('/', getAllInventoryRecords);
-router.get('/archived', adminOnly as any, getArchivedInventoryRecords);
-router.get('/damaged', getDamagedInventoryRecords);
-router.get('/:id', getInventoryById);
-router.post('/', adminOnly as any, createInventoryItem);
-router.patch('/:id', adminOnly as any, updateInventoryItem);
-router.patch('/:id/archive', adminOnly as any, archiveInventoryItem);
-router.patch('/:id/restore', adminOnly as any, restoreInventoryItem);
-router.delete('/:id', adminOnly as any, deleteInventoryItem);
+router.use(protect);
+
+router.get('/', listInventory);
+router.get('/damaged', listDamagedInventory);
+router.get('/archived', adminOnly, listArchivedInventory);
+router.get('/qr/:qrCodeId', validate({ params: qrParams }), getByQrCode);
+router.get('/:id', withId, getInventoryItem);
+
+router.post('/', adminOnly, validate({ body: createInventoryBody }), createInventoryItem);
+router.patch('/:id', adminOnly, validate({ params: idParams, body: updateInventoryBody }), updateInventoryItem);
+router.patch('/:id/archive', adminOnly, withId, archiveInventoryItem);
+router.patch('/:id/restore', adminOnly, withId, restoreInventoryItem);
+router.delete('/:id', adminOnly, withId, deleteInventoryItem);
 
 export default router;

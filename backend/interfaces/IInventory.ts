@@ -1,9 +1,11 @@
-import { Document } from 'mongoose';
+import { Types } from 'mongoose';
+import { INVENTORY_CATEGORIES, INVENTORY_STATUSES } from '../config/constants';
 
-export type InventoryStatus = 'Available' | 'Rented' | 'Maintenance' | 'Damaged' | 'Lost';
-export type InventoryCategory = 'Instruments' | 'Audio Gear' | 'Cables' | 'Other';
+export type InventoryStatus = (typeof INVENTORY_STATUSES)[number];
+export type InventoryCategory = (typeof INVENTORY_CATEGORIES)[number];
 
-export interface IInventory extends Document {
+export interface IInventory {
+    _id: Types.ObjectId;
     itemName: string;
     category: InventoryCategory;
     brand?: string;
@@ -14,6 +16,7 @@ export interface IInventory extends Document {
     baseRentalPrice: number;
     purchaseDate?: Date;
     lastMaintenance?: Date;
+    notes?: string;
     specifications?: Map<string, string>;
     isArchived: boolean;
     archivedAt?: Date;

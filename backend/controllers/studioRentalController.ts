@@ -1,98 +1,47 @@
-import { Request, Response } from 'express';
+import { RequestHandler } from 'express';
 import studioRentalService from '../services/studioRentalService';
 
+// GET /api/studio-rentals/rooms
+export const listRooms: RequestHandler = (_req, res) => {
+    res.json(studioRentalService.rooms());
+};
+
 // GET /api/studio-rentals
-export const getAllStudioRentals = async (req: Request, res: Response) => {
-    try {
-        const rentals = await studioRentalService.getAllStudioRentals();
-        res.json(rentals);
-    } catch (err: any) {
-        res.status(err.statusCode || 500).json({ message: err.message });
-    }
+export const listStudioRentals: RequestHandler = async (_req, res) => {
+    res.json(await studioRentalService.list());
 };
 
 // GET /api/studio-rentals/archived
-export const getArchivedStudioRentals = async (req: Request, res: Response) => {
-    try {
-        const rentals = await studioRentalService.getArchivedStudioRentals();
-        res.json(rentals);
-    } catch (err: any) {
-        res.status(err.statusCode || 500).json({ message: err.message });
-    }
+export const listArchivedStudioRentals: RequestHandler = async (_req, res) => {
+    res.json(await studioRentalService.listArchived());
 };
 
 // GET /api/studio-rentals/:id
-export const getStudioRentalById = async (req: Request, res: Response) => {
-    try {
-        const { id } = req.params;
-        const rental = await studioRentalService.getStudioRentalById(id as string);
-        res.json(rental);
-    } catch (err: any) {
-        res.status(err.statusCode || 500).json({ message: err.message });
-    }
+export const getStudioRental: RequestHandler = async (req, res) => {
+    res.json(await studioRentalService.getById(req.params.id as string));
 };
 
 // POST /api/studio-rentals
-export const createStudioRental = async (req: Request, res: Response) => {
-    try {
-        const rental = await studioRentalService.createStudioRental(req.body);
-        res.status(201).json(rental);
-    } catch (err: any) {
-        res.status(err.statusCode || 400).json({ message: err.message });
-    }
+export const createStudioRental: RequestHandler = async (req, res) => {
+    res.status(201).json(await studioRentalService.create(req.body, req.user!));
 };
 
 // PATCH /api/studio-rentals/:id
-export const updateStudioRental = async (req: Request, res: Response) => {
-    try {
-        const { id } = req.params;
-        const rental = await studioRentalService.updateStudioRental(id as string, req.body);
-        res.json(rental);
-    } catch (err: any) {
-        res.status(err.statusCode || 400).json({ message: err.message });
-    }
-};
-
-// PATCH /api/studio-rentals/:id/status
-export const updateStudioStatus = async (req: Request, res: Response) => {
-    try {
-        const { id } = req.params;
-        const rental = await studioRentalService.updateStudioStatus(id as string, req.body.status);
-        res.json(rental);
-    } catch (err: any) {
-        res.status(err.statusCode || 400).json({ message: err.message });
-    }
+export const updateStudioRental: RequestHandler = async (req, res) => {
+    res.json(await studioRentalService.update(req.params.id as string, req.body, req.user!));
 };
 
 // PATCH /api/studio-rentals/:id/archive
-export const archiveStudioRental = async (req: Request, res: Response) => {
-    try {
-        const { id } = req.params;
-        const result = await studioRentalService.archiveStudioRental(id as string);
-        res.json(result);
-    } catch (err: any) {
-        res.status(err.statusCode || 400).json({ message: err.message });
-    }
+export const archiveStudioRental: RequestHandler = async (req, res) => {
+    res.json(await studioRentalService.archive(req.params.id as string, req.user!));
 };
 
 // PATCH /api/studio-rentals/:id/restore
-export const restoreStudioRental = async (req: Request, res: Response) => {
-    try {
-        const { id } = req.params;
-        const result = await studioRentalService.restoreStudioRental(id as string);
-        res.json(result);
-    } catch (err: any) {
-        res.status(err.statusCode || 400).json({ message: err.message });
-    }
+export const restoreStudioRental: RequestHandler = async (req, res) => {
+    res.json(await studioRentalService.restore(req.params.id as string, req.user!));
 };
 
 // DELETE /api/studio-rentals/:id
-export const deleteStudioRental = async (req: Request, res: Response) => {
-    try {
-        const { id } = req.params;
-        const result = await studioRentalService.deleteStudioRental(id as string);
-        res.json(result);
-    } catch (err: any) {
-        res.status(err.statusCode || 400).json({ message: err.message });
-    }
+export const deleteStudioRental: RequestHandler = async (req, res) => {
+    res.json(await studioRentalService.remove(req.params.id as string, req.user!));
 };

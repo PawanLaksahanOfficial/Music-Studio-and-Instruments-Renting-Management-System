@@ -1,1 +1,0 @@
-export type ComponentStyles = Record<string, React.CSSProperties | Record<string, React.CSSProperties>>;

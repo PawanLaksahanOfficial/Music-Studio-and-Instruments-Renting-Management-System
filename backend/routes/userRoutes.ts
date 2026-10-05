@@ -1,15 +1,18 @@
-import express, { Router } from 'express';
-import { protect, adminOnly } from '../auth';
-import { getAllUsers, createUser, updateUser, toggleActive, deleteUser, shareCredentials } from '../controllers/userController';
+import { Router } from 'express';
+import { adminOnly, protect } from '../middleware/auth';
+import { validate } from '../middleware/validate';
+import { idParams } from '../validators/common';
+import { createUserBody, updateUserBody } from '../validators/user';
+import { createUser, deleteUser, listUsers, sendLoginDetails, toggleActive, updateUser } from '../controllers/userController';
 
-const router: Router = express.Router();
+const router = Router();
 
-router.use(protect as any, adminOnly as any);
-router.get('/', getAllUsers);
-router.post('/', createUser);
-router.post('/share-credentials', shareCredentials);
-router.patch('/:id', updateUser);
-router.patch('/:id/toggle-active', toggleActive);
-router.delete('/:id', deleteUser);
+router.use(protect, adminOnly);
+router.get('/', listUsers);
+router.post('/', validate({ body: createUserBody }), createUser);
+router.patch('/:id', validate({ params: idParams, body: updateUserBody }), updateUser);
+router.patch('/:id/toggle-active', validate({ params: idParams }), toggleActive);
+router.post('/:id/send-login-details', validate({ params: idParams }), sendLoginDetails);
+router.delete('/:id', validate({ params: idParams }), deleteUser);
 
 export default router;

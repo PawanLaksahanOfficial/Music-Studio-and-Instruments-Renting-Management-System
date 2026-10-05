@@ -1,59 +1,51 @@
-import express, { Express, Request, Response, NextFunction } from 'express';
-import dotenv from 'dotenv';
-import cors from 'cors';
-import connectDB from './config/db';
+// Load and validate configuration before anything else reads process.env.
+import { env } from './config/env';
+import { connectDB, disconnectDB } from './config/db';
+import { createApp } from './app';
 import { initCronJobs } from './utils/cronJobs';
+import { logger } from './utils/logger';
 
-// Load environment variables
-dotenv.config();
-
-// Connect to Database
-connectDB();
-
-// Models 
-import './models/User';
-import './models/Customer';
-import './models/Inventory';
-import './models/ProductRental';
-import './models/StudioRental';
-import './models/Invoice';
-
-const app: Express = express();
-
-// Middleware
-app.use(cors());
-app.use(express.json());
-
-// Routes 
-import authRoutes from './routes/authRoutes';
-import userRoutes from './routes/userRoutes';
-import customerRoutes from './routes/customerRoutes';
-import inventoryRoutes from './routes/inventoryRoutes';
-import rentalRoutes from './routes/rentalRoutes';
-import studioRentalRoutes from './routes/studioRentalRoutes';
-import invoiceRoutes from './routes/invoiceRoutes';
-import statsRoutes from './routes/statsRoutes';
-import cronRoutes from './routes/cronRoutes';
-
-app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/customers', customerRoutes);
-app.use('/api/inventory', inventoryRoutes);
-app.use('/api/rentals', rentalRoutes);
-app.use('/api/studio-rentals', studioRentalRoutes);
-app.use('/api/invoices', invoiceRoutes);
-app.use('/api/stats', statsRoutes);
-app.use('/api/cron', cronRoutes);
-
-app.get('/', (req: Request, res: Response) => res.send('🎵 ELVI Music Studio API is running with TypeScript...'));
-
-app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
-    const status = typeof err.statusCode === 'number' ? err.statusCode : (typeof err.status === 'number' ? err.status : 500);
-    res.status(status).json({ message: err.message || 'Internal server error' });
+process.on('unhandledRejection', reason => {
+    logger.error({ err: reason }, 'Unhandled promise rejection');
+});
+process.on('uncaughtException', err => {
+    logger.fatal({ err }, 'Uncaught exception, shutting down');
+    process.exit(1);
 });
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-    console.log(`✅ Server running on port ${PORT}`);
-    initCronJobs();
+const start = async () => {
+    // Connect before accepting traffic, so the first requests don't fail.
+    await connectDB();
+
+    const app = createApp();
+    const server = app.listen(env.PORT, () => {
+        logger.info({ port: env.PORT, env: env.NODE_ENV }, 'ELVI Music Studio API listening');
+    });
+
+    const stopCron = env.CRON_ENABLED ? initCronJobs() : () => undefined;
+
+    let shuttingDown = false;
+    const shutdown = (signal: string) => {
+        if (shuttingDown) return;
+        shuttingDown = true;
+        logger.info({ signal }, 'Shutting down gracefully');
+        stopCron();
+
+        // Force exit if open connections don't drain in time.
+        const forceExit = setTimeout(() => process.exit(1), 10_000);
+        forceExit.unref();
+
+        server.close(async () => {
+            await disconnectDB().catch(err => logger.error({ err }, 'Error closing MongoDB connection'));
+            logger.info('Shutdown complete');
+            process.exit(0);
+        });
+    };
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
+    process.on('SIGINT', () => shutdown('SIGINT'));
+};
+
+start().catch(err => {
+    logger.fatal({ err }, 'Failed to start server');
+    process.exit(1);
 });

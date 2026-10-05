@@ -1,9 +1,11 @@
-import { Document, Types } from 'mongoose';
+import { Types } from 'mongoose';
+import { SIMPLE_PAYMENT_STATUSES, STUDIO_STATUSES } from '../config/constants';
 
-export type StudioRentalStatus = 'Confirmed' | 'Cancelled' | 'Completed';
-export type StudioPaymentStatus = 'Paid' | 'Pending';
+export type StudioRentalStatus = (typeof STUDIO_STATUSES)[number];
+export type StudioPaymentStatus = (typeof SIMPLE_PAYMENT_STATUSES)[number];
 
-export interface IStudioRental extends Document {
+export interface IStudioRental {
+    _id: Types.ObjectId;
     bookingId: string;
     customer: Types.ObjectId;
     roomName: string;
@@ -14,6 +16,7 @@ export interface IStudioRental extends Document {
     status: StudioRentalStatus;
     paymentStatus: StudioPaymentStatus;
     notes?: string;
+    createdBy?: Types.ObjectId;
     isDeleted: boolean;
     isArchived: boolean;
     archivedAt?: Date;

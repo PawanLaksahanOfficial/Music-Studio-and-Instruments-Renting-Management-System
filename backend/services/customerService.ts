@@ -1,134 +1,129 @@
+import { z } from 'zod';
 import Customer from '../models/Customer';
 import ProductRental from '../models/ProductRental';
-import { ICustomer } from '../interfaces/ICustomer';
+import StudioRental from '../models/StudioRental';
+import Invoice from '../models/Invoice';
+import { ACTIVE_RENTAL_STATUSES } from '../config/constants';
+import { conflict, notFound } from '../utils/AppError';
+import { logger } from '../utils/logger';
+import { createCustomerBody, updateCustomerBody } from '../validators/customer';
+import { AuthUser } from '../interfaces/IUser';
+
+type CreateCustomerInput = z.infer<typeof createCustomerBody>;
+type UpdateCustomerInput = z.infer<typeof updateCustomerBody>;
+
+const CASE_INSENSITIVE = { locale: 'en', strength: 2 } as const;
 
 class CustomerService {
-    async getAllCustomers(): Promise<ICustomer[]> {
-        return await Customer.find({ isArchived: false }).sort({ createdAt: -1 });
+    list() {
+        return Customer.find({ isArchived: false }).sort({ createdAt: -1 }).lean();
     }
 
-    async getCustomerById(id: string): Promise<ICustomer> {
-        const customer = await Customer.findById(id).populate('rentalHistory');
-        if (!customer) {
-            const error: any = new Error('Customer not found');
-            error.statusCode = 404;
-            throw error;
-        }
+    listArchived() {
+        return Customer.find({ isArchived: true }).sort({ archivedAt: -1 }).lean();
+    }
+
+    async getById(id: string) {
+        const customer = await Customer.findById(id).lean();
+        if (!customer) throw notFound('Customer');
         return customer;
     }
 
-    async createCustomer(data: any): Promise<ICustomer> {
-        const { firstName, lastName, email, phone, address, nicOrPassport } = data;
-        
-        if (!firstName || !lastName || !phone || !nicOrPassport) {
-            const error: any = new Error('firstName, lastName, phone and nicOrPassport are required');
-            error.statusCode = 400;
-            throw error;
-        }
-
-        const existing = await Customer.findOne({ nicOrPassport });
-        if (existing) {
-            const error: any = new Error('A customer with this NIC/Passport already exists');
-            error.statusCode = 409;
-            throw error;
-        }
-        return await Customer.create({ firstName, lastName, email, phone, address, nicOrPassport });
+    async create(input: CreateCustomerInput, actor: AuthUser) {
+        await this.assertNicAvailable(input.nicOrPassport);
+        const customer = await Customer.create({ ...input, email: input.email || undefined });
+        logger.info({ event: 'customer.created', customerId: customer.id, by: actor.id }, 'Customer created');
+        return customer.toObject();
     }
 
-    async updateCustomer(id: string, updateData: any): Promise<ICustomer> {
-        const allowed = ['firstName', 'lastName', 'email', 'phone', 'address', 'nicOrPassport'];
-        const updates: any = {};
-        allowed.forEach(f => { if (updateData[f] !== undefined) updates[f] = updateData[f]; });
+    async update(id: string, input: UpdateCustomerInput, actor: AuthUser) {
+        if (input.nicOrPassport) await this.assertNicAvailable(input.nicOrPassport, id);
 
-        const customer = await Customer.findByIdAndUpdate(id, updates, { new: true, runValidators: true });
-        if (!customer) {
-            const error: any = new Error('Customer not found');
-            error.statusCode = 404;
-            throw error;
-        }
+        const { email, ...rest } = input;
+        const update = email === '' ? { $set: rest, $unset: { email: 1 } } : { $set: { ...rest, ...(email ? { email } : {}) } };
+
+        const customer = await Customer.findByIdAndUpdate(id, update, { returnDocument: 'after', runValidators: true }).lean();
+        if (!customer) throw notFound('Customer');
+        logger.info({ event: 'customer.updated', customerId: id, by: actor.id }, 'Customer updated');
         return customer;
     }
 
-    async toggleBlacklist(id: string): Promise<{ isBlacklisted: boolean }> {
+    async toggleBlacklist(id: string, actor: AuthUser) {
         const customer = await Customer.findById(id);
-        if (!customer) {
-            const error: any = new Error('Customer not found');
-            error.statusCode = 404;
-            throw error;
-        }
+        if (!customer) throw notFound('Customer');
         customer.isBlacklisted = !customer.isBlacklisted;
         await customer.save();
+        logger.info({ event: customer.isBlacklisted ? 'customer.blacklisted' : 'customer.unblacklisted', customerId: id, by: actor.id }, 'Customer blacklist changed');
         return { isBlacklisted: customer.isBlacklisted };
     }
 
-    async archiveCustomer(id: string): Promise<{ message: string }> {
+    async archive(id: string, actor: AuthUser) {
         const customer = await Customer.findById(id);
-        if (!customer) {
-            const error: any = new Error('Customer not found');
-            error.statusCode = 404;
-            throw error;
-        }
+        if (!customer) throw notFound('Customer');
+        await this.assertNoActiveBusiness(id, 'archive');
+
         customer.isArchived = true;
         customer.archivedAt = new Date();
         await customer.save();
+        logger.info({ event: 'customer.archived', customerId: id, by: actor.id }, 'Customer archived');
         return { message: 'Customer archived' };
     }
 
-    async restoreCustomer(id: string): Promise<{ message: string }> {
+    async restore(id: string, actor: AuthUser) {
         const customer = await Customer.findById(id);
-        if (!customer) {
-            const error: any = new Error('Customer not found');
-            error.statusCode = 404;
-            throw error;
-        }
+        if (!customer) throw notFound('Customer');
         customer.isArchived = false;
         customer.archivedAt = undefined;
         await customer.save();
+        logger.info({ event: 'customer.restored', customerId: id, by: actor.id }, 'Customer restored');
         return { message: 'Customer restored' };
     }
 
-    async deleteCustomer(id: string): Promise<{ message: string }> {
-        const customer = await Customer.findByIdAndDelete(id);
-        if (!customer) {
-            const error: any = new Error('Customer not found');
-            error.statusCode = 404;
-            throw error;
+    /** Permanent delete is only allowed for customers without any history (rentals, bookings, invoices). */
+    async remove(id: string, actor: AuthUser) {
+        const customer = await Customer.findById(id);
+        if (!customer) throw notFound('Customer');
+
+        const [rentals, bookings, invoices] = await Promise.all([
+            ProductRental.exists({ customer: id, isDeleted: false }),
+            StudioRental.exists({ customer: id, isDeleted: false }),
+            Invoice.exists({ customer: id }),
+        ]);
+        if (rentals || bookings || invoices) {
+            throw conflict('This customer has rental or invoice history and cannot be deleted. Archive the customer instead.');
         }
+
+        await customer.deleteOne();
+        logger.info({ event: 'customer.deleted', customerId: id, by: actor.id }, 'Customer deleted');
         return { message: 'Customer deleted permanently' };
     }
 
-    async getArchivedCustomers(): Promise<ICustomer[]> {
-        return await Customer.find({ isArchived: true }).sort({ archivedAt: -1 });
-    }
+    async getProfile(id: string) {
+        const customer = await Customer.findById(id).lean();
+        if (!customer) throw notFound('Customer');
 
-    async getCustomerProfile(id: string): Promise<any> {
-        const customer = await Customer.findById(id);
-        if (!customer) {
-            const error: any = new Error('Customer not found');
-            error.statusCode = 404;
-            throw error;
-        }
-        // Get all rentals for this customer
-        const rentals = await ProductRental.find({
-            customer: id,
-            isDeleted: false,
-            isArchived: false,
-        }).populate('items.itemId').sort({ createdAt: -1 });
-        const totalRentals = rentals.length;
+        const rentals = await ProductRental.find({ customer: id, isDeleted: false })
+            .populate('items.itemId', 'itemName serialNumber')
+            .sort({ createdAt: -1 })
+            .lean();
+
         let totalSpending = 0;
-        let lastRentalDate: string | null = null;
         let outstandingFines = 0;
-        const rentalHistory: any[] = [];
-        rentals.forEach((r, index) => {
+        for (const r of rentals) {
             totalSpending += r.totalAmount || 0;
-            if (index === 0) {
-                lastRentalDate = r.createdAt?.toISOString() || null;
-            }
-            // outstanding fines = lateFee + damageCharges for unpaid/Pending/Partial
-            if (r.paymentStatus !== 'Paid') {
-                outstandingFines += (r.lateFee || 0) + (r.damageCharges || 0);
-            }
-            rentalHistory.push({
+            if (r.paymentStatus !== 'Paid') outstandingFines += (r.lateFee || 0) + (r.damageCharges || 0);
+        }
+
+        return {
+            customer,
+            stats: {
+                totalRentals: rentals.length,
+                activeRentals: rentals.filter(r => (ACTIVE_RENTAL_STATUSES as readonly string[]).includes(r.status)).length,
+                totalSpending,
+                lastRentalDate: rentals[0]?.createdAt ?? null,
+                outstandingFines,
+            },
+            rentalHistory: rentals.map(r => ({
                 _id: r._id,
                 rentalId: r.rentalId,
                 items: r.items,
@@ -141,28 +136,26 @@ class CustomerService {
                 lateFee: r.lateFee || 0,
                 damageCharges: r.damageCharges || 0,
                 damageNotes: r.damageNotes || '',
-            });
-        });
-
-        return {
-            customer: {
-                _id: customer._id,
-                firstName: customer.firstName,
-                lastName: customer.lastName,
-                email: customer.email,
-                phone: customer.phone,
-                nicOrPassport: customer.nicOrPassport,
-                isBlacklisted: customer.isBlacklisted,
-                createdAt: customer.createdAt,
-            },
-            stats: {
-                totalRentals,
-                totalSpending,
-                lastRentalDate,
-                outstandingFines,
-            },
-            rentalHistory,
+                isArchived: r.isArchived,
+            })),
         };
+    }
+
+    private async assertNicAvailable(nicOrPassport: string, excludeId?: string) {
+        const existing = await Customer.findOne({ nicOrPassport, ...(excludeId ? { _id: { $ne: excludeId } } : {}) })
+            .collation(CASE_INSENSITIVE)
+            .select('_id')
+            .lean();
+        if (existing) throw conflict('A customer with this NIC / passport number already exists');
+    }
+
+    private async assertNoActiveBusiness(customerId: string, action: string) {
+        const [activeRental, upcomingBooking] = await Promise.all([
+            ProductRental.exists({ customer: customerId, isDeleted: false, status: { $in: ACTIVE_RENTAL_STATUSES } }),
+            StudioRental.exists({ customer: customerId, isDeleted: false, status: 'Confirmed', endTime: { $gte: new Date() } }),
+        ]);
+        if (activeRental) throw conflict(`This customer still has items out on rental. Process the return before you ${action} them.`);
+        if (upcomingBooking) throw conflict(`This customer has an upcoming studio booking. Cancel it before you ${action} them.`);
     }
 }
 

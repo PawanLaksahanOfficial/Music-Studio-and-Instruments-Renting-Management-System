@@ -1,10 +1,9 @@
-import express, { Router } from 'express';
-import * as cronController from '../controllers/cronController';
-import { protect, adminOnly } from '../auth';
+import { Router } from 'express';
+import { adminOnly, protect } from '../middleware/auth';
+import { triggerReminders } from '../controllers/cronController';
 
-const router: Router = express.Router();
+const router = Router();
 
-// Manual trigger for due date reminders
-router.post('/trigger-reminders', protect as any, adminOnly as any, cronController.triggerReminders);
+router.post('/trigger-reminders', protect, adminOnly, triggerReminders);
 
 export default router;

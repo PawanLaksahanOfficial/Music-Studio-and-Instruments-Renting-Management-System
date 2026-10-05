@@ -1,54 +1,59 @@
-import { SNSClient, PublishCommand } from "@aws-sdk/client-sns";
-import { SESClient, SendEmailCommand } from "@aws-sdk/client-ses";
+import { PublishCommand, SNSClient } from '@aws-sdk/client-sns';
+import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
+import { env } from '../config/env';
+import { AppError, badRequest } from './AppError';
+import { logger, maskEmail, maskPhone } from './logger';
+import { toE164 } from './phone';
 
-const config = {
-    credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID as string,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY as string,
-    },
-    region: process.env.AWS_REGION || 'us-east-1'
-};
+// Clients are created on first use, after configuration is loaded. Without explicit keys the
+// AWS SDK default credential chain is used (IAM role, ~/.aws, environment).
+const clientConfig = () => ({
+    region: env.AWS_REGION,
+    ...(env.AWS_ACCESS_KEY_ID && env.AWS_SECRET_ACCESS_KEY
+        ? { credentials: { accessKeyId: env.AWS_ACCESS_KEY_ID, secretAccessKey: env.AWS_SECRET_ACCESS_KEY } }
+        : {}),
+});
 
-const snsClient = new SNSClient(config);
-const sesClient = new SESClient(config);
+let snsClient: SNSClient | undefined;
+let sesClient: SESClient | undefined;
+const sns = () => (snsClient ??= new SNSClient(clientConfig()));
+const ses = () => (sesClient ??= new SESClient(clientConfig()));
 
 export const sendSMS = async (phoneNumber: string, message: string) => {
+    const to = toE164(phoneNumber);
+    if (!to) throw badRequest('Invalid phone number for SMS');
+
     try {
-        const params = {
-            Message: message,
-            PhoneNumber: phoneNumber,
-        };
-        const command = new PublishCommand(params);
-        const result = await snsClient.send(command);
-        console.log(`SMS sent to ${phoneNumber}: ${result.MessageId}`);
+        const result = await sns().send(new PublishCommand({ Message: message, PhoneNumber: to }));
+        logger.info({ event: 'notify.sms_sent', to: maskPhone(to), messageId: result.MessageId }, 'SMS sent');
         return result;
     } catch (err) {
-        console.error('AWS SNS Error:', err);
+        logger.error({ event: 'notify.sms_failed', to: maskPhone(to), err }, 'SMS sending failed');
         throw err;
     }
 };
 
+export const isEmailConfigured = () => Boolean(env.AWS_SES_FROM_EMAIL);
+
 export const sendEmail = async (toEmail: string, subject: string, text: string) => {
+    if (!env.AWS_SES_FROM_EMAIL) {
+        throw new AppError(503, 'Email sending is not configured on the server', 'EMAIL_NOT_CONFIGURED');
+    }
+
     try {
-        const params = {
+        const result = await ses().send(new SendEmailCommand({
             Destination: { ToAddresses: [toEmail] },
-            Message: {
-                Body: { Text: { Data: text } },
-                Subject: { Data: subject }
-            },
-            Source: process.env.AWS_SES_FROM_EMAIL || 'no-reply@elvistudio.com'
-        };
-        const command = new SendEmailCommand(params);
-        const result = await sesClient.send(command);
-        console.log(`Email sent to ${toEmail}: ${result.MessageId}`);
+            Message: { Body: { Text: { Data: text } }, Subject: { Data: subject } },
+            Source: env.AWS_SES_FROM_EMAIL,
+        }));
+        logger.info({ event: 'notify.email_sent', to: maskEmail(toEmail), messageId: result.MessageId }, 'Email sent');
         return result;
-    } catch (err: any) {
-        console.error('AWS SES Error:', err);
-        if (err.name === 'MessageRejected' && err.message.includes('Email address is not verified')) {
-            console.error('CRITICAL: SES is in Sandbox mode or email is unverified.');
-            console.error(`Verified sender email: ${process.env.AWS_SES_FROM_EMAIL}`);
-            console.error(`Attempted recipient: ${toEmail}`);
-        }
+    } catch (err) {
+        const e = err as { name?: string; message?: string };
+        const hint = e.name === 'MessageRejected' && e.message?.includes('not verified')
+            ? 'SES is in sandbox mode or the address is unverified'
+            : undefined;
+        logger.error({ event: 'notify.email_failed', to: maskEmail(toEmail), hint, err }, 'Email sending failed');
         throw err;
     }
 };

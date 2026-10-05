@@ -1,121 +1,112 @@
-import { v4 as uuidv4 } from 'uuid';
+import { randomBytes } from 'node:crypto';
+import { z } from 'zod';
 import Inventory from '../models/Inventory';
-import { IInventory } from '../interfaces/IInventory';
+import ProductRental from '../models/ProductRental';
+import { AppError, conflict, notFound } from '../utils/AppError';
+import { logger } from '../utils/logger';
+import { parseDateOnly } from '../utils/dates';
+import { createInventoryBody, updateInventoryBody } from '../validators/inventory';
+import { AuthUser } from '../interfaces/IUser';
+
+type CreateInventoryInput = z.infer<typeof createInventoryBody>;
+type UpdateInventoryInput = z.infer<typeof updateInventoryBody>;
+
+/** Printed QR labels may encode "ELVI-XXXX|name|serial|price"; only the first segment identifies the item. */
+export const parseQrCode = (raw: string) => raw.split('|')[0].trim();
+
+const toDate = (value?: string) => (value ? parseDateOnly(value) : undefined);
 
 class InventoryService {
-    async getAllInventory(): Promise<IInventory[]> {
-        return await Inventory.find({ isArchived: false }).sort({ createdAt: -1 });
+    list() {
+        return Inventory.find({ isArchived: false }).sort({ createdAt: -1 }).lean();
     }
 
-    async getInventoryByQRCode(qrCodeId: string): Promise<IInventory> {
-        const parsedId = qrCodeId.split('|')[0].trim();
-        const item = await Inventory.findOne({ qrCodeId: parsedId });
-        if (!item) {
-            const error: any = new Error('No item found for this QR code');
-            error.statusCode = 404;
-            throw error;
-        }
+    listArchived() {
+        return Inventory.find({ isArchived: true }).sort({ archivedAt: -1 }).lean();
+    }
+
+    listDamaged() {
+        return Inventory.find({ status: 'Damaged', isArchived: false }).sort({ updatedAt: -1 }).lean();
+    }
+
+    async getById(id: string) {
+        const item = await Inventory.findById(id).lean();
+        if (!item) throw notFound('Item');
         return item;
     }
 
-    async getInventoryById(id: string): Promise<IInventory> {
-        const item = await Inventory.findById(id);
-        if (!item) {
-            const error: any = new Error('Item not found');
-            error.statusCode = 404;
-            throw error;
-        }
+    async getByQrCode(raw: string) {
+        const item = await Inventory.findOne({ qrCodeId: parseQrCode(raw), isArchived: false }).lean();
+        if (!item) throw new AppError(404, 'No inventory item matches this QR code', 'QR_NOT_FOUND');
         return item;
     }
 
-    async createInventoryItem(data: any): Promise<IInventory> {
-        const { itemName, category, brand, itemModel, serialNumber, status, baseRentalPrice, purchaseDate } = data;
-        
-        if (!itemName || !category || !serialNumber || baseRentalPrice === undefined) {
-            const error: any = new Error('itemName, category, serialNumber and baseRentalPrice are required');
-            error.statusCode = 400;
-            throw error;
+    async create(input: CreateInventoryInput, actor: AuthUser) {
+        if (await Inventory.exists({ serialNumber: input.serialNumber })) {
+            throw conflict('An item with this serial number already exists');
         }
 
-        const existing = await Inventory.findOne({ serialNumber });
-        if (existing) {
-            const error: any = new Error('An item with this serial number already exists');
-            error.statusCode = 409;
-            throw error;
-        }
-
-        const qrCodeId = `ELVI-${uuidv4().split('-')[0].toUpperCase()}`;
-        
-        return await Inventory.create({
-            itemName, category, brand, itemModel, serialNumber,
-            qrCodeId, status, baseRentalPrice, purchaseDate,
+        const item = await Inventory.create({
+            ...input,
+            purchaseDate: toDate(input.purchaseDate),
+            qrCodeId: `ELVI-${randomBytes(4).toString('hex').toUpperCase()}`,
         });
+        logger.info({ event: 'inventory.created', itemId: item.id, by: actor.id }, 'Inventory item created');
+        return item.toObject();
     }
 
-    async updateInventoryItem(id: string, updateData: any): Promise<IInventory> {
-        const allowed = ['itemName','category','brand','itemModel','status','baseRentalPrice','purchaseDate','lastMaintenance'];
-        const updates: any = {};
-        allowed.forEach(f => { if (updateData[f] !== undefined) updates[f] = updateData[f]; });
-
-        const item = await Inventory.findByIdAndUpdate(id, updates, { new: true, runValidators: true });
-        if (!item) {
-            const error: any = new Error('Item not found');
-            error.statusCode = 404;
-            throw error;
-        }
-        return item;
-    }
-
-    async archiveInventoryItem(id: string): Promise<{ message: string }> {
+    async update(id: string, input: UpdateInventoryInput, actor: AuthUser) {
         const item = await Inventory.findById(id);
-        if (!item) {
-            const error: any = new Error('Item not found');
-            error.statusCode = 404;
-            throw error;
+        if (!item) throw notFound('Item');
+
+        if (input.status && input.status !== item.status && item.status === 'Rented') {
+            throw conflict('This item is out on rental. Its status changes when the rental is returned.');
         }
+
+        const { purchaseDate, lastMaintenance, ...rest } = input;
+        item.set(rest);
+        if (purchaseDate !== undefined) item.purchaseDate = toDate(purchaseDate);
+        if (lastMaintenance !== undefined) item.lastMaintenance = toDate(lastMaintenance);
+        await item.save();
+
+        logger.info({ event: 'inventory.updated', itemId: id, by: actor.id, fields: Object.keys(input) }, 'Inventory item updated');
+        return item.toObject();
+    }
+
+    async archive(id: string, actor: AuthUser) {
+        const item = await Inventory.findById(id);
+        if (!item) throw notFound('Item');
+        if (item.status === 'Rented') throw conflict('This item is out on rental and cannot be archived until it is returned.');
+
         item.isArchived = true;
         item.archivedAt = new Date();
         await item.save();
+        logger.info({ event: 'inventory.archived', itemId: id, by: actor.id }, 'Inventory item archived');
         return { message: 'Item archived' };
     }
 
-    async restoreInventoryItem(id: string): Promise<{ message: string }> {
+    async restore(id: string, actor: AuthUser) {
         const item = await Inventory.findById(id);
-        if (!item) {
-            const error: any = new Error('Item not found');
-            error.statusCode = 404;
-            throw error;
-        }
+        if (!item) throw notFound('Item');
         item.isArchived = false;
         item.archivedAt = undefined;
         await item.save();
+        logger.info({ event: 'inventory.restored', itemId: id, by: actor.id }, 'Inventory item restored');
         return { message: 'Item restored' };
     }
 
-    async deleteInventoryItem(id: string): Promise<{ message: string }> {
+    /** Permanent delete is only allowed for items that were never rented, so history stays intact. */
+    async remove(id: string, actor: AuthUser) {
         const item = await Inventory.findById(id);
-        if (!item) {
-            const error: any = new Error('Item not found');
-            error.statusCode = 404;
-            throw error;
-        }
-        
-        if (item.status === 'Rented') {
-            const error: any = new Error('Cannot delete an item that is currently rented out');
-            error.statusCode = 400;
-            throw error;
+        if (!item) throw notFound('Item');
+        if (item.status === 'Rented') throw conflict('This item is out on rental and cannot be deleted.');
+        if (await ProductRental.exists({ 'items.itemId': item._id, isDeleted: false })) {
+            throw conflict('This item has rental history and cannot be deleted. Archive it instead.');
         }
 
         await item.deleteOne();
+        logger.info({ event: 'inventory.deleted', itemId: id, by: actor.id }, 'Inventory item deleted');
         return { message: 'Item deleted permanently' };
-    }
-
-    async getArchivedInventory(): Promise<IInventory[]> {
-        return await Inventory.find({ isArchived: true }).sort({ archivedAt: -1 });
-    }
-
-    async getDamagedInventory(): Promise<IInventory[]> {
-        return await Inventory.find({ status: 'Damaged', isArchived: false }).sort({ updatedAt: -1 });
     }
 }
 
