@@ -1,22 +1,27 @@
-import express, { Router } from 'express';
-import { protect, adminOnly } from '../auth';
-import { 
-    getAllStudioRentals, getStudioRentalById, createStudioRental, 
-    updateStudioRental, updateStudioStatus, archiveStudioRental, 
-    restoreStudioRental, deleteStudioRental, getArchivedStudioRentals 
+import { Router } from 'express';
+import { adminOnly, protect } from '../middleware/auth';
+import { validate } from '../middleware/validate';
+import { idParams } from '../validators/common';
+import { createStudioBody, updateStudioBody } from '../validators/studio';
+import {
+    archiveStudioRental, createStudioRental, deleteStudioRental, getStudioRental, listArchivedStudioRentals,
+    listRooms, listStudioRentals, restoreStudioRental, updateStudioRental,
 } from '../controllers/studioRentalController';
 
-const router: Router = express.Router();
+const router = Router();
+const withId = validate({ params: idParams });
 
-router.use(protect as any);
-router.get('/', getAllStudioRentals);
-router.get('/archived', adminOnly as any, getArchivedStudioRentals);
-router.get('/:id', getStudioRentalById);
-router.post('/', createStudioRental);
-router.patch('/:id', updateStudioRental);
-router.patch('/:id/status', updateStudioStatus);
-router.patch('/:id/archive', archiveStudioRental);
-router.patch('/:id/restore', adminOnly as any, restoreStudioRental);
-router.delete('/:id', adminOnly as any, deleteStudioRental);
+router.use(protect);
+
+router.get('/', listStudioRentals);
+router.get('/rooms', listRooms);
+router.get('/archived', adminOnly, listArchivedStudioRentals);
+router.get('/:id', withId, getStudioRental);
+
+router.post('/', validate({ body: createStudioBody }), createStudioRental);
+router.patch('/:id', validate({ params: idParams, body: updateStudioBody }), updateStudioRental);
+router.patch('/:id/archive', withId, archiveStudioRental);
+router.patch('/:id/restore', adminOnly, withId, restoreStudioRental);
+router.delete('/:id', adminOnly, withId, deleteStudioRental);
 
 export default router;

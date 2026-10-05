@@ -1,13 +1,13 @@
-import { Document, Types } from 'mongoose';
+import { Types } from 'mongoose';
 
-export interface ICustomer extends Document {
+export interface ICustomer {
+    _id: Types.ObjectId;
     firstName: string;
     lastName: string;
     email?: string;
     phone: string;
     address?: string;
     nicOrPassport: string;
-    rentalHistory: Types.ObjectId[];
     isBlacklisted: boolean;
     isArchived: boolean;
     archivedAt?: Date;

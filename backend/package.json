@@ -2,34 +2,53 @@
   "name": "elvi-backend",
   "version": "1.0.0",
   "description": "ELVI Music Studio Management System - Backend API",
-  "main": "server.js",
+  "main": "dist/server.js",
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
+    "dev": "tsx watch server.ts",
+    "dev:demo": "tsx scripts/demo.ts",
+    "build": "tsc -p tsconfig.build.json",
     "start": "node dist/server.js",
-    "dev": "nodemon server.ts",
-    "build": "tsc",
-    "seed": "node seed.js"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "seed": "tsx scripts/seed.ts"
   },
   "dependencies": {
     "@aws-sdk/client-ses": "^3.1048.0",
     "@aws-sdk/client-sns": "^3.1048.0",
     "bcryptjs": "^2.4.3",
+    "compression": "^1.8.2",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "dotenv": "^16.0.0",
-    "express": "^4.21.2",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.7.0",
+    "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.3",
-    "mongoose": "^9.4.1",
+    "mongoose": "^9.10.4",
     "node-cron": "^4.2.1",
-    "uuid": "^11.1.0"
+    "pino": "^10.4.0",
+    "pino-http": "^11.0.0",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
+    "@types/compression": "^1.8.1",
+    "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^25.9.0",
-    "@types/uuid": "^10.0.0",
-    "nodemon": "^3.1.14",
-    "ts-node": "^10.9.2",
-    "typescript": "^6.0.3"
+    "@types/supertest": "^7.2.1",
+    "mongodb-memory-server": "^11.3.0",
+    "pino-pretty": "^13.2.0",
+    "supertest": "^7.3.1",
+    "tsx": "^4.23.15",
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.3"
   }
 }

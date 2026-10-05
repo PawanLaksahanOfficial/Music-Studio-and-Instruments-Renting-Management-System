@@ -1,23 +1,37 @@
-import { Request, Response } from 'express';
+import { RequestHandler } from 'express';
 import authService from '../services/authService';
+import { clearSessionCookie, SESSION_COOKIE, setSessionCookie, verifySessionToken } from '../services/tokenService';
 
 // POST /api/auth/login
-export const login = async (req: Request, res: Response) => {
-    try {
-        const { username, password } = req.body;
-        const result = await authService.login(username, password);
-        res.json(result);
-    } catch (err: any) {
-        res.status(err.statusCode || 500).json({ message: err.message });
-    }
+export const login: RequestHandler = async (req, res) => {
+    const { user, token } = await authService.login(req.body.username, req.body.password, req.ip);
+    setSessionCookie(res, token);
+    res.json({ user });
 };
 
 // GET /api/auth/me
-export const getMe = async (req: Request, res: Response) => {
-    try {
-        const user = await authService.getMe((req as any).user);
-        res.json(user);
-    } catch (err: any) {
-        res.status(err.statusCode || 500).json({ message: err.message });
+export const getMe: RequestHandler = async (req, res) => {
+    res.json(await authService.getMe(req.user!.id));
+};
+
+// POST /api/auth/logout — always clears the cookie; revokes the session if it is still valid.
+export const logout: RequestHandler = async (req, res) => {
+    const token = req.cookies?.[SESSION_COOKIE];
+    if (typeof token === 'string') {
+        try {
+            const claims = verifySessionToken(token);
+            await authService.logout(claims.sub);
+        } catch {
+            // Expired or invalid token: nothing to revoke.
+        }
     }
+    clearSessionCookie(res);
+    res.status(204).end();
+};
+
+// PATCH /api/auth/password
+export const changePassword: RequestHandler = async (req, res) => {
+    const { user, token } = await authService.changePassword(req.user!.id, req.body.currentPassword, req.body.newPassword);
+    setSessionCookie(res, token);
+    res.json({ user });
 };
